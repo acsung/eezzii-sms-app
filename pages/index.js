@@ -1,10 +1,7 @@
-// eezzii-sms-app: Minimal SMS blast tool
+// eezzii-sms-app: Minimal SMS blast tool (Plain HTML version)
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 
 const supabase = createClient(
   'https://xawgyywwsykfncoskjjp.supabase.co',
@@ -55,28 +52,31 @@ export default function App() {
   }, [])
 
   return (
-    <main className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">📢 EEZZZII SMS Blast Tool</h1>
-      <Textarea
+    <main style={{ padding: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>📢 EEZZZII SMS Blast Tool</h1>
+
+      <textarea
         rows={4}
         placeholder="Paste phone numbers here (one per line or comma-separated)"
         value={phoneNumbers}
         onChange={e => setPhoneNumbers(e.target.value)}
-        className="mb-4"
+        style={{ width: '100%', marginBottom: '1rem' }}
       />
-      <Textarea
+
+      <textarea
         rows={3}
         placeholder="Enter your message"
         value={message}
         onChange={e => setMessage(e.target.value)}
-        className="mb-4"
+        style={{ width: '100%', marginBottom: '1rem' }}
       />
-      <Button onClick={sendSMS} disabled={sending}>
-        {sending ? 'Sending...' : 'Send SMS'}
-      </Button>
 
-      <h2 className="text-lg font-semibold mt-8 mb-2">Recent Messages</h2>
-      <ul className="space-y-1 text-sm">
+      <button onClick={sendSMS} disabled={sending} style={{ padding: '0.5rem 1rem' }}>
+        {sending ? 'Sending...' : 'Send SMS'}
+      </button>
+
+      <h2 style={{ fontSize: '1.2rem', fontWeight: '600', marginTop: '2rem', marginBottom: '0.5rem' }}>Recent Messages</h2>
+      <ul style={{ fontSize: '0.9rem', listStyle: 'none', padding: 0 }}>
         {logs.map(log => (
           <li key={log.id}>
             ✅ {log.recipient}: "{log.content}" ({log.status})
