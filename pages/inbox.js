@@ -13,6 +13,24 @@ export default function Inbox() {
   const [messages, setMessages] = useState([])
   const [grouped, setGrouped] = useState({})
   const [selected, setSelected] = useState(null)
+const [reply, setReply] = useState('')
+
+const handleReply = async () => {
+  if (!reply.trim() || !selected) return
+
+  const res = await fetch('/api/send-sms', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: selected,
+      message: reply
+    })
+  })
+
+  const result = await res.json()
+  console.log('Sent:', result)
+  setReply('')
+}
 
   useEffect(() => {
     const fetchMessages = async () => {
