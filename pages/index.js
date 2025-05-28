@@ -1,4 +1,4 @@
-// eezzii-sms-app: Minimal SMS blast tool (Plain HTML version)
+// eezzii-sms-app: Enhanced SMS blast tool with timestamp + auto-refresh
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -13,12 +13,21 @@ export default function App() {
   const [message, setMessage] = useState('')
   const [logs, setLogs] = useState([])
   const [sending, setSending] = useState(false)
+  const [numberCount, setNumberCount] = useState(0)
 
-  const sendSMS = async () => {
-    const phones = phoneNumbers
+  const parseNumbers = (raw) => {
+    return raw
       .split(/\n|,/)
       .map(p => p.trim())
       .filter(p => p)
+  }
+
+  const sendSMS = async () => {
+    const phones = parseNumbers(phoneNumbers)
+    if (phones.length === 0 || !message.trim()) {
+      alert('Please enter at least one phone number and a message.')
+      return
+    }
 
     setSending(true)
     for (const number of phones) {
@@ -39,17 +48,24 @@ export default function App() {
     alert('Messages sent!')
   }
 
+  const loadLogs = async () => {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setLogs(data)
+  }
+
   useEffect(() => {
-    const loadLogs = async () => {
-      const { data } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20)
-      setLogs(data)
-    }
     loadLogs()
+    const interval = setInterval(loadLogs, 5000)
+    return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    setNumberCount(parseNumbers(phoneNumbers).length)
+  }, [phoneNumbers])
 
   return (
     <main style={{ padding: '1.5rem', maxWidth: '600px', margin: '0 auto' }}>
@@ -60,8 +76,9 @@ export default function App() {
         placeholder="Paste phone numbers here (one per line or comma-separated)"
         value={phoneNumbers}
         onChange={e => setPhoneNumbers(e.target.value)}
-        style={{ width: '100%', marginBottom: '1rem' }}
+        style={{ width: '100%', marginBottom: '0.5rem' }}
       />
+      <div style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>📱 {numberCount} phone number(s) detected</div>
 
       <textarea
         rows={3}
@@ -79,10 +96,11 @@ export default function App() {
       <ul style={{ fontSize: '0.9rem', listStyle: 'none', padding: 0 }}>
         {logs.map(log => (
           <li key={log.id}>
-            ✅ {log.recipient}: "{log.content}" ({log.status})
+            ✅ {log.recipient}: "{log.content}" ({log.status})<br />
+            <small>{new Date(log.created_at).toLocaleString()}</small>
           </li>
         ))}
       </ul>
     </main>
   )
-}
+} 
