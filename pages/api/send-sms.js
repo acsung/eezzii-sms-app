@@ -1,51 +1,53 @@
-// pages/api/send-sms.js
-
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 
+// Initialize Supabase client
 const supabase = createClient(
   'https://xawgyywwsykfncoskjjp.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhd2d5eXd3c3lrZm5jb3NrampwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNjEzMTMsImV4cCI6MjA2MzkzNzMxM30.nV7_dMGdVZt-Qm5g2Augq6Q-xmFsTzs1ZJx3TG58PJE'
 )
 
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+// Twilio credentials from env vars (set these in Vercel dashboard)
+const accountSid = process.env.TWILIO_ACCOUNT_SID
+const authToken = process.env.TWILIO_AUTH_TOKEN
+const fromNumber = process.env.TWILIO_PHONE_NUMBER
+
+const client = twilio(accountSid, authToken)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
   const { to, message } = req.body
 
+  if (!to || !message) {
+    return res.status(400).json({ error: 'Missing "to" or "message" field.' })
+  }
+
   try {
-    // Send SMS
-    const response = await client.messages.create({
-      to,
-      from: process.env.TWILIO_MESSAGING_SERVICE_SID,
-      body: message
+    // Send SMS with Twilio
+    const twilioRes = await client.messages.create({
+      body: message,
+      from: fromNumber,
+      to
     })
 
-    // Log to Supabase
-    await supabase.from('messages').insert([
+    // Log the outgoing message to Supabase
+    const { error } = await supabase.from('messages').insert([
       {
-        recipient: to,
+        to,
         content: message,
-        status: 'sent',
-        direction: 'outbound'
+        sent_at: new Date().toISOString()
       }
     ])
 
-    res.status(200).json({ success: true, sid: response.sid })
+    if (error) {
+      console.error('Supabase insert error:', error)
+      return res.status(500).json({ error: 'Message sent but not logged' })
+    }
+
+    res.status(200).json({ success: true, sid: twilioRes.sid })
   } catch (err) {
-    console.error('SMS Send Error:', err.message)
-
-    await supabase.from('messages').insert([
-      {
-        recipient: to,
-        content: message,
-        status: 'failed',
-        direction: 'outbound'
-      }
-    ])
-
-    res.status(500).json({ success: false, error: err.message })
+    console.error('SMS send error:', err)
+    res.status(500).json({ error: 'Failed to send message' })
   }
 }
