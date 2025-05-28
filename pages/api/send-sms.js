@@ -1,13 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 
-// Initialize Supabase client
 const supabase = createClient(
   'https://xawgyywwsykfncoskjjp.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhd2d5eXd3c3lrZm5jb3NrampwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNjEzMTMsImV4cCI6MjA2MzkzNzMxM30.nV7_dMGdVZt-Qm5g2Augq6Q-xmFsTzs1ZJx3TG58PJE'
 )
 
-// Twilio credentials from env vars (set these in Vercel dashboard)
 const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const fromNumber = process.env.TWILIO_PHONE_NUMBER
@@ -24,25 +22,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Send SMS with Twilio
     const twilioRes = await client.messages.create({
       body: message,
       from: fromNumber,
       to
     })
 
-    // Log the outgoing message to Supabase
     const { error } = await supabase.from('messages').insert([
       {
-        to,
+        recipient: to,
         content: message,
-        sent_at: new Date().toISOString()
+        status: 'sent',
+        created_at: new Date().toISOString()
       }
     ])
 
     if (error) {
       console.error('Supabase insert error:', error)
-      return res.status(500).json({ error: 'Message sent but not logged' })
+      return res.status(500).json({ error: 'Message sent but logging failed' })
     }
 
     res.status(200).json({ success: true, sid: twilioRes.sid })
