@@ -93,6 +93,44 @@ const handleReply = async () => {
             )}
           </section>
         </div>
+{selected && (
+  <form
+    onSubmit={e => {
+      e.preventDefault()
+      handleReply()
+    }}
+    style={{ marginTop: '1.5rem' }}
+  >
+    <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+      Send a reply to {selected}:
+    </label>
+    <textarea
+      value={reply}
+      onChange={e => setReply(e.target.value)}
+      rows={3}
+      style={{
+        width: '100%',
+        padding: '0.5rem',
+        fontSize: '0.9rem',
+        marginBottom: '0.5rem'
+      }}
+    />
+    <button
+      type="submit"
+      style={{
+        background: '#0070f3',
+        color: 'white',
+        border: 'none',
+        padding: '0.5rem 1rem',
+        borderRadius: '4px',
+        cursor: 'pointer'
+      }}
+    >
+      Send Reply
+    </button>
+  </form>
+)}
+
       )}
 
       <p style={{ marginTop: '2rem' }}>
