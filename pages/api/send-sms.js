@@ -1,31 +1,51 @@
 // pages/api/send-sms.js
 
+import { createClient } from '@supabase/supabase-js'
+import twilio from 'twilio'
+
+const supabase = createClient(
+  'https://xawgyywwsykfncoskjjp.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
-  const { to, body } = req.body
+  const { to, message } = req.body
 
-  const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID
-  const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN
-  const TWILIO_MESSAGING_SERVICE_SID = process.env.TWILIO_MESSAGING_SERVICE_SID
+  try {
+    // Send SMS
+    const response = await client.messages.create({
+      to,
+      from: process.env.TWILIO_MESSAGING_SERVICE_SID,
+      body: message
+    })
 
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`
+    // Log to Supabase
+    await supabase.from('messages').insert([
+      {
+        recipient: to,
+        content: message,
+        status: 'sent',
+        direction: 'outbound'
+      }
+    ])
 
-  const params = new URLSearchParams()
-  params.append('To', to)
-  params.append('MessagingServiceSid', TWILIO_MESSAGING_SERVICE_SID)
-  params.append('Body', body)
+    res.status(200).json({ success: true, sid: response.sid })
+  } catch (err) {
+    console.error('SMS Send Error:', err.message)
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization:
-        'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64'),
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params,
-  })
+    await supabase.from('messages').insert([
+      {
+        recipient: to,
+        content: message,
+        status: 'failed',
+        direction: 'outbound'
+      }
+    ])
 
-  const result = await response.json()
-  res.status(200).json({ status: result.status || 'sent', sid: result.sid })
+    res.status(500).json({ success: false, error: err.message })
+  }
 }
