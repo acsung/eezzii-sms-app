@@ -13,24 +13,24 @@ export default function Inbox() {
   const [messages, setMessages] = useState([])
   const [grouped, setGrouped] = useState({})
   const [selected, setSelected] = useState(null)
-const [reply, setReply] = useState('')
+  const [reply, setReply] = useState('')
 
-const handleReply = async () => {
-  if (!reply.trim() || !selected) return
+  const handleReply = async () => {
+    if (!reply.trim() || !selected) return
 
-  const res = await fetch('/api/send-sms', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      to: selected,
-      message: reply
+    const res = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: selected,
+        message: reply
+      })
     })
-  })
 
-  const result = await res.json()
-  console.log('Sent:', result)
-  setReply('')
-}
+    const result = await res.json()
+    console.log('Sent:', result)
+    setReply('')
+  }
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -87,50 +87,48 @@ const handleReply = async () => {
                     </li>
                   ))}
                 </ul>
+
+                <form
+                  onSubmit={e => {
+                    e.preventDefault()
+                    handleReply()
+                  }}
+                  style={{ marginTop: '1.5rem' }}
+                >
+                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                    Send a reply to {selected}:
+                  </label>
+                  <textarea
+                    value={reply}
+                    onChange={e => setReply(e.target.value)}
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      fontSize: '0.9rem',
+                      marginBottom: '0.5rem'
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      background: '#0070f3',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Send Reply
+                  </button>
+                </form>
               </>
             ) : (
               <p>Select a sender to view messages.</p>
             )}
           </section>
         </div>
-{selected && (
-  <form
-    onSubmit={e => {
-      e.preventDefault()
-      handleReply()
-    }}
-    style={{ marginTop: '1.5rem' }}
-  >
-    <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-      Send a reply to {selected}:
-    </label>
-    <textarea
-      value={reply}
-      onChange={e => setReply(e.target.value)}
-      rows={3}
-      style={{
-        width: '100%',
-        padding: '0.5rem',
-        fontSize: '0.9rem',
-        marginBottom: '0.5rem'
-      }}
-    />
-    <button
-      type="submit"
-      style={{
-        background: '#0070f3',
-        color: 'white',
-        border: 'none',
-        padding: '0.5rem 1rem',
-        borderRadius: '4px',
-        cursor: 'pointer'
-      }}
-    >
-      Send Reply
-    </button>
-  </form>
-)}
-
       )}
 
       <p style={{ marginTop: '2rem' }}>
