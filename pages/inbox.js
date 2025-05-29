@@ -1,8 +1,8 @@
-// pages/inbox.js – EEZZZII Inbox with Navigation Dropdown + Tag Filters + Contact View + Import/Export + CSV Deduplication + Mapping + Report
+// pages/inbox.js – EEZZZII Inbox View with Sidebar Navigation
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
 import { createClient } from '@supabase/supabase-js'
+import { useRouter } from 'next/router'
 
 const supabase = createClient(
   'https://xawgyywwsykfncoskjjp.supabase.co',
@@ -11,192 +11,89 @@ const supabase = createClient(
 
 export default function Inbox() {
   const router = useRouter()
-  const [messages, setMessages] = useState([])
   const [contacts, setContacts] = useState([])
-  const [selectedTag, setSelectedTag] = useState('')
-  const [selectedContact, setSelectedContact] = useState(null)
-  const [csvTag, setCsvTag] = useState('')
-  const [importReport, setImportReport] = useState(null)
-  const [csvHeaders, setCsvHeaders] = useState([])
-  const [csvRows, setCsvRows] = useState([])
-  const [mapping, setMapping] = useState({ phone: '', tag: '' })
+  const [messages, setMessages] = useState([])
+  const [activeTag, setActiveTag] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: msgData } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      const { data: contactData } = await supabase
-        .from('contacts')
-        .select('*')
-
-      setMessages(msgData || [])
-      setContacts(contactData || [])
-    }
     fetchData()
   }, [])
 
-  const tags = [...new Set(contacts.map(c => c.tag).filter(Boolean))]
-  const filteredContacts = selectedTag
-    ? contacts.filter(c => c.tag === selectedTag)
+  const fetchData = async () => {
+    const { data: contactList } = await supabase.from('contacts').select('*')
+    const { data: messageList } = await supabase.from('messages').select('*').order('created_at', { ascending: false })
+    setContacts(contactList)
+    setMessages(messageList)
+  }
+
+  const filteredContacts = activeTag
+    ? contacts.filter((c) => c.tag === activeTag)
     : contacts
 
-  const filteredMessages = selectedContact
-    ? messages.filter(m => m.recipient === selectedContact.phone || m.sender === selectedContact.phone)
-    : messages
+  const messagesByPhone = (phone) =>
+    messages.filter((m) => m.recipient === phone || m.sender === phone)
 
-  const handleFileLoad = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    const text = await file.text()
-    const lines = text.trim().split('\n')
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-    const rows = lines.slice(1).map(line => line.split(',').map(c => c.trim()))
-
-    setCsvHeaders(headers)
-    setCsvRows(rows)
-  }
-
-  const handleCsvImport = async () => {
-    const phoneIndex = csvHeaders.indexOf(mapping.phone)
-    if (phoneIndex === -1) return alert('Phone field mapping is required.')
-    const tagIndex = csvHeaders.indexOf(mapping.tag)
-
-    const incoming = csvRows.map(row => {
-      return {
-        phone: row[phoneIndex],
-        tag: tagIndex >= 0 ? row[tagIndex] : (csvTag || null)
-      }
-    })
-
-    const { data: existing } = await supabase.from('contacts').select('phone')
-    const existingPhones = new Set((existing || []).map(c => c.phone))
-
-    const toInsert = []
-    const skipped = []
-
-    for (let c of incoming) {
-      if (!existingPhones.has(c.phone)) {
-        toInsert.push(c)
-      } else {
-        skipped.push(c)
-      }
-    }
-
-    let inserted = []
-    if (toInsert.length > 0) {
-      const { data, error } = await supabase.from('contacts').insert(toInsert)
-      if (error) return alert('Error importing contacts.')
-      inserted = data
-    }
-
-    setImportReport({ inserted, skipped })
-    const { data: contactData } = await supabase.from('contacts').select('*')
-    setContacts(contactData || [])
-    setCsvHeaders([])
-    setCsvRows([])
-  }
-
-  const handleExport = () => {
-    const filtered = selectedTag ? contacts.filter(c => c.tag === selectedTag) : contacts
-    const csv = filtered.map(c => `${c.phone},${c.tag || ''}`).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'contacts_export.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  const allTags = Array.from(new Set(contacts.map((c) => c.tag))).filter(Boolean)
 
   return (
-    <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
-      <nav style={{ marginBottom: 20 }}>
-        <select onChange={(e) => router.push(e.target.value)} style={{ padding: 6 }}>
-          <option value='/inbox' disabled selected>📂 Navigate</option>
-          <option value='/'>🔁 Go to SMS Blaster</option>
-          <option value='/inbox'>📨 Inbox</option>
-        </select>
-      </nav>
-      <div style={{ display: 'flex', gap: 40 }}>
-        <div style={{ width: '30%' }}>
-          <h2>📁 Contact Filters</h2>
-          <select onChange={(e) => setSelectedTag(e.target.value)} value={selectedTag} style={{ width: '100%', marginBottom: 10 }}>
-            <option value=''>-- View All Tags --</option>
-            {tags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
-          </select>
+    <div style={{ fontFamily: 'sans-serif' }}>
+      {/* Sidebar toggle */}
+      <button 
+        onClick={() => setMenuOpen(!menuOpen)}
+        style={{ position: 'fixed', top: 20, left: 20, zIndex: 10 }}>
+        📋 Menu
+      </button>
 
-          <h3>👤 Contacts</h3>
-          <ul>
-            {filteredContacts.map(contact => (
-              <li key={contact.id} onClick={() => setSelectedContact(contact)} style={{ cursor: 'pointer', marginBottom: 6 }}>
-                {contact.phone} {contact.tag ? `(${contact.tag})` : ''}
-              </li>
-            ))}
-          </ul>
-
-          <hr />
-          <h4>📤 Import Contacts CSV</h4>
-          <input
-            type='text'
-            placeholder='Optional tag to assign'
-            value={csvTag}
-            onChange={(e) => setCsvTag(e.target.value)}
-            style={{ width: '100%', marginBottom: 6 }}
-          />
-          <input type='file' accept='.csv,.txt' onChange={handleFileLoad} style={{ width: '100%' }} />
-
-          {csvHeaders.length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <label>📞 Map Phone Column:</label>
-              <select onChange={e => setMapping(m => ({ ...m, phone: e.target.value }))} value={mapping.phone} style={{ width: '100%' }}>
-                <option value=''>-- Select Column --</option>
-                {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-              <label>🏷️ Map Tag Column:</label>
-              <select onChange={e => setMapping(m => ({ ...m, tag: e.target.value }))} value={mapping.tag} style={{ width: '100%', marginBottom: 6 }}>
-                <option value=''>-- None --</option>
-                {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-              <button onClick={handleCsvImport} style={{ width: '100%' }}>Import Mapped Contacts</button>
-            </div>
-          )}
-
-          {importReport && (
-            <div style={{ marginTop: 10, fontSize: '0.9rem' }}>
-              <strong>✅ Imported:</strong> {importReport.inserted.length}<br />
-              <strong>⛔ Skipped (already exist):</strong> {importReport.skipped.length}<br />
-              {importReport.skipped.length > 0 && (
-                <details style={{ marginTop: 4 }}>
-                  <summary>View Skipped</summary>
-                  <ul style={{ paddingLeft: 20 }}>
-                    {importReport.skipped.map(c => (
-                      <li key={c.phone}>{c.phone} {c.tag && `(${c.tag})`}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          )}
-
-          <h4 style={{ marginTop: 20 }}>⬇️ Export</h4>
-          <button onClick={handleExport} style={{ width: '100%' }}>Export Filtered Contacts</button>
-        </div>
-
-        <div style={{ width: '70%' }}>
-          <h2>📨 Messages {selectedContact ? `for ${selectedContact.phone}` : ''}</h2>
+      {/* Sidebar */}
+      {menuOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: 250,
+          height: '100%',
+          background: '#f4f4f4',
+          padding: 20,
+          boxShadow: '2px 0 5px rgba(0,0,0,0.2)',
+          zIndex: 9
+        }}>
+          <h3>📁 Navigation</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {filteredMessages.map(m => (
-              <li key={m.id} style={{ marginBottom: 10 }}>
-                <b>{m.direction === 'inbound' ? m.sender : m.recipient}</b>: {m.content} <br />
-                <small>{new Date(m.created_at).toLocaleString()}</small>
-              </li>
-            ))}
+            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/')}>🔁 Go to SMS Blaster</button></li>
+            <li><button style={{ background: 'none', border: 'none', padding: 10 }} disabled>📨 Inbox</button></li>
           </ul>
         </div>
+      )}
+
+      {/* Main content */}
+      <div style={{ padding: '60px 20px 20px 20px', marginLeft: menuOpen ? 270 : 20 }}>
+        <h2>📁 Contact Filters</h2>
+        <select value={activeTag} onChange={(e) => setActiveTag(e.target.value)}>
+          <option value=''>-- View All Tags --</option>
+          {allTags.map((tag) => (
+            <option key={tag} value={tag}>{tag}</option>
+          ))}
+        </select>
+
+        <h3>📞 Contacts</h3>
+        <ul>
+          {filteredContacts.map((c) => (
+            <li key={c.id}>
+              {c.phone} {c.tag && <span>({c.tag})</span>}
+            </li>
+          ))}
+        </ul>
+
+        <h3>📨 Messages</h3>
+        <ul>
+          {messages.map((m) => (
+            <li key={m.id}>
+              <strong>{m.recipient || m.sender}</strong>: {m.content}<br />
+              <small>{new Date(m.created_at).toLocaleString()}</small>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )
