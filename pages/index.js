@@ -47,14 +47,7 @@ export default function App() {
 
         const data = await res.json()
 
-        await supabase.from('messages').insert({
-          recipient: number,
-          content: message,
-          status: data.status || 'sent',
-          direction: 'outbound',
-          channel: 'sms',
-          created_at: new Date(),
-        })
+
       } catch (err) {
         console.error('Failed to send message or log to Supabase:', err)
       }
