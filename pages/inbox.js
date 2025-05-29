@@ -1,4 +1,4 @@
-// pages/inbox.js – EEZZZII Inbox with Tag Filters + Contact View + Import/Export
+// pages/inbox.js – EEZZZII Inbox with Tag Filters + Contact View + Import/Export + CSV Deduplication + Report
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -14,6 +14,7 @@ export default function Inbox() {
   const [selectedTag, setSelectedTag] = useState('')
   const [selectedContact, setSelectedContact] = useState(null)
   const [csvTag, setCsvTag] = useState('')
+  const [importReport, setImportReport] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,20 +44,48 @@ export default function Inbox() {
 
   const handleImport = async (e) => {
     const file = e.target.files[0]
-    if (!file) {
-      alert('Please select a CSV file to import.')
-      return
-    }
+    if (!file) return alert('Please select a CSV file.')
+
     const text = await file.text()
     const lines = text.trim().split('\n')
-    const imported = lines.map(phone => ({ phone: phone.trim(), tag: csvTag || null }))
-    const { error } = await supabase.from('contacts').upsert(imported, { onConflict: ['phone'] })
-    if (error) {
-      alert('Import failed')
-    } else {
-      alert('Contacts imported successfully')
-      location.reload()
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+    const phoneIndex = headers.indexOf('phone')
+    const tagIndex = headers.indexOf('tag')
+
+    if (phoneIndex === -1) return alert("CSV must include 'phone' column")
+
+    const incoming = lines.slice(1).map(line => {
+      const cols = line.split(',')
+      return {
+        phone: cols[phoneIndex].trim(),
+        tag: tagIndex >= 0 ? cols[tagIndex].trim() : (csvTag || null)
+      }
+    })
+
+    const { data: existing } = await supabase.from('contacts').select('phone')
+    const existingPhones = new Set((existing || []).map(c => c.phone))
+
+    const toInsert = []
+    const skipped = []
+
+    for (let c of incoming) {
+      if (!existingPhones.has(c.phone)) {
+        toInsert.push(c)
+      } else {
+        skipped.push(c)
+      }
     }
+
+    let inserted = []
+    if (toInsert.length > 0) {
+      const { data, error } = await supabase.from('contacts').insert(toInsert)
+      if (error) return alert('Error importing contacts.')
+      inserted = data
+    }
+
+    setImportReport({ inserted, skipped })
+    const { data: contactData } = await supabase.from('contacts').select('*')
+    setContacts(contactData || [])
   }
 
   const handleExport = () => {
@@ -100,6 +129,23 @@ export default function Inbox() {
           style={{ width: '100%', marginBottom: 6 }}
         />
         <input type='file' accept='.csv,.txt' onChange={handleImport} style={{ width: '100%' }} />
+
+        {importReport && (
+          <div style={{ marginTop: 10, fontSize: '0.9rem' }}>
+            <strong>✅ Imported:</strong> {importReport.inserted.length}<br />
+            <strong>⛔ Skipped (already exist):</strong> {importReport.skipped.length}<br />
+            {importReport.skipped.length > 0 && (
+              <details style={{ marginTop: 4 }}>
+                <summary>View Skipped</summary>
+                <ul style={{ paddingLeft: 20 }}>
+                  {importReport.skipped.map(c => (
+                    <li key={c.phone}>{c.phone} {c.tag && `(${c.tag})`}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
 
         <h4 style={{ marginTop: 20 }}>⬇️ Export</h4>
         <button onClick={handleExport} style={{ width: '100%' }}>Export Filtered Contacts</button>
