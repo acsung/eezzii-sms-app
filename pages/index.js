@@ -1,4 +1,4 @@
-// pages/index.js – EEZZZII SMS Blaster Page with Navigation Dropdown
+// pages/index.js – EEZZZII SMS Blaster Page with Sidebar Navigation
 
 import { useState } from 'react'
 import { useRouter } from 'next/router'
@@ -14,6 +14,7 @@ export default function SMSBlaster() {
   const [to, setTo] = useState('')
   const [message, setMessage] = useState('')
   const [status, setStatus] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const sendMessage = async () => {
     setStatus('Sending...')
@@ -33,36 +34,59 @@ export default function SMSBlaster() {
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
-      <nav style={{ marginBottom: 20 }}>
-        <select onChange={(e) => router.push(e.target.value)} style={{ padding: 6 }}>
-          <option value='/' disabled selected>📂 Navigate</option>
-          <option value='/'>🔁 Go to SMS Blaster</option>
-          <option value='/inbox'>📨 Inbox</option>
-        </select>
-      </nav>
+    <div style={{ fontFamily: 'sans-serif' }}>
+      {/* Sidebar toggle */}
+      <button 
+        onClick={() => setMenuOpen(!menuOpen)}
+        style={{ position: 'fixed', top: 20, left: 20, zIndex: 10 }}>
+        📋 Menu
+      </button>
 
-      <h1>📤 EEZZZII SMS Blaster</h1>
-      <div style={{ maxWidth: 400 }}>
-        <label>Phone Number:</label>
-        <input
-          type='text'
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          placeholder='+1234567890'
-          style={{ width: '100%', marginBottom: 10 }}
-        />
-        <label>Message:</label>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={4}
-          style={{ width: '100%', marginBottom: 10 }}
-        />
-        <button onClick={sendMessage} style={{ width: '100%' }}>
-          Send SMS
-        </button>
-        {status && <p style={{ marginTop: 10 }}>{status}</p>}
+      {/* Sidebar */}
+      {menuOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: 250,
+          height: '100%',
+          background: '#f4f4f4',
+          padding: 20,
+          boxShadow: '2px 0 5px rgba(0,0,0,0.2)',
+          zIndex: 9
+        }}>
+          <h3>📁 Navigation</h3>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/')}>🔁 Go to SMS Blaster</button></li>
+            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/inbox')}>📨 Inbox</button></li>
+          </ul>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div style={{ padding: '60px 20px 20px 20px', marginLeft: menuOpen ? 270 : 20 }}>
+        <h1>📤 EEZZZII SMS Blaster</h1>
+        <div style={{ maxWidth: 400 }}>
+          <label>Phone Number:</label>
+          <input
+            type='text'
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            placeholder='+1234567890'
+            style={{ width: '100%', marginBottom: 10 }}
+          />
+          <label>Message:</label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            style={{ width: '100%', marginBottom: 10 }}
+          />
+          <button onClick={sendMessage} style={{ width: '100%' }}>
+            Send SMS
+          </button>
+          {status && <p style={{ marginTop: 10 }}>{status}</p>}
+        </div>
       </div>
     </div>
   )
