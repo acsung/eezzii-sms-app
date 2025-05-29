@@ -1,4 +1,4 @@
-// pages/inbox.js – EEZZZII Inbox with Tag Filters + Contact View + Import/Export + CSV Deduplication + Report
+// pages/inbox.js – EEZZZII Inbox with Tag Filters + Contact View + Import/Export + CSV Deduplication + Report + Field Mapping
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -15,6 +15,9 @@ export default function Inbox() {
   const [selectedContact, setSelectedContact] = useState(null)
   const [csvTag, setCsvTag] = useState('')
   const [importReport, setImportReport] = useState(null)
+  const [csvHeaders, setCsvHeaders] = useState([])
+  const [csvRows, setCsvRows] = useState([])
+  const [mapping, setMapping] = useState({ phone: '', tag: '' })
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,23 +45,28 @@ export default function Inbox() {
     ? messages.filter(m => m.recipient === selectedContact.phone || m.sender === selectedContact.phone)
     : messages
 
-  const handleImport = async (e) => {
+  const handleFileLoad = async (e) => {
     const file = e.target.files[0]
-    if (!file) return alert('Please select a CSV file.')
+    if (!file) return
 
     const text = await file.text()
     const lines = text.trim().split('\n')
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-    const phoneIndex = headers.indexOf('phone')
-    const tagIndex = headers.indexOf('tag')
+    const rows = lines.slice(1).map(line => line.split(',').map(c => c.trim()))
 
-    if (phoneIndex === -1) return alert("CSV must include 'phone' column")
+    setCsvHeaders(headers)
+    setCsvRows(rows)
+  }
 
-    const incoming = lines.slice(1).map(line => {
-      const cols = line.split(',')
+  const handleCsvImport = async () => {
+    const phoneIndex = csvHeaders.indexOf(mapping.phone)
+    if (phoneIndex === -1) return alert('Phone field mapping is required.')
+    const tagIndex = csvHeaders.indexOf(mapping.tag)
+
+    const incoming = csvRows.map(row => {
       return {
-        phone: cols[phoneIndex].trim(),
-        tag: tagIndex >= 0 ? cols[tagIndex].trim() : (csvTag || null)
+        phone: row[phoneIndex],
+        tag: tagIndex >= 0 ? row[tagIndex] : (csvTag || null)
       }
     })
 
@@ -86,6 +94,8 @@ export default function Inbox() {
     setImportReport({ inserted, skipped })
     const { data: contactData } = await supabase.from('contacts').select('*')
     setContacts(contactData || [])
+    setCsvHeaders([])
+    setCsvRows([])
   }
 
   const handleExport = () => {
@@ -102,7 +112,6 @@ export default function Inbox() {
 
   return (
     <div style={{ display: 'flex', padding: 20, gap: 40, fontFamily: 'sans-serif' }}>
-      {/* Left column – Filters + Contact list */}
       <div style={{ width: '30%' }}>
         <h2>📁 Contact Filters</h2>
         <select onChange={(e) => setSelectedTag(e.target.value)} value={selectedTag} style={{ width: '100%', marginBottom: 10 }}>
@@ -128,7 +137,23 @@ export default function Inbox() {
           onChange={(e) => setCsvTag(e.target.value)}
           style={{ width: '100%', marginBottom: 6 }}
         />
-        <input type='file' accept='.csv,.txt' onChange={handleImport} style={{ width: '100%' }} />
+        <input type='file' accept='.csv,.txt' onChange={handleFileLoad} style={{ width: '100%' }} />
+
+        {csvHeaders.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <label>📞 Map Phone Column:</label>
+            <select onChange={e => setMapping(m => ({ ...m, phone: e.target.value }))} value={mapping.phone} style={{ width: '100%' }}>
+              <option value=''>-- Select Column --</option>
+              {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+            <label>🏷️ Map Tag Column:</label>
+            <select onChange={e => setMapping(m => ({ ...m, tag: e.target.value }))} value={mapping.tag} style={{ width: '100%', marginBottom: 6 }}>
+              <option value=''>-- None --</option>
+              {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+            <button onClick={handleCsvImport} style={{ width: '100%' }}>Import Mapped Contacts</button>
+          </div>
+        )}
 
         {importReport && (
           <div style={{ marginTop: 10, fontSize: '0.9rem' }}>
@@ -151,7 +176,6 @@ export default function Inbox() {
         <button onClick={handleExport} style={{ width: '100%' }}>Export Filtered Contacts</button>
       </div>
 
-      {/* Right column – Message Threads */}
       <div style={{ width: '70%' }}>
         <h2>📨 Messages {selectedContact ? `for ${selectedContact.phone}` : ''}</h2>
         <ul style={{ listStyle: 'none', padding: 0 }}>
