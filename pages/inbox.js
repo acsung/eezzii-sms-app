@@ -43,13 +43,13 @@ export default function Inbox() {
 
   const handleImport = async (e) => {
     const file = e.target.files[0]
-    if (!file || !csvTag) {
-      alert('Select a tag and CSV file first.')
+    if (!file) {
+      alert('Please select a CSV file to import.')
       return
     }
     const text = await file.text()
     const lines = text.trim().split('\n')
-    const imported = lines.map(phone => ({ phone: phone.trim(), tag: csvTag }))
+    const imported = lines.map(phone => ({ phone: phone.trim(), tag: csvTag || null }))
     const { error } = await supabase.from('contacts').upsert(imported, { onConflict: ['phone'] })
     if (error) {
       alert('Import failed')
@@ -94,7 +94,7 @@ export default function Inbox() {
         <h4>📤 Import Contacts CSV</h4>
         <input
           type='text'
-          placeholder='Tag to assign'
+          placeholder='Optional tag to assign'
           value={csvTag}
           onChange={(e) => setCsvTag(e.target.value)}
           style={{ width: '100%', marginBottom: 6 }}
