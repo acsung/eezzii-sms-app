@@ -153,12 +153,15 @@ export default function Inbox() {
                 <div key={t.id} onClick={() => applyTemplate(t)} style={{ borderBottom: '1px solid #ddd', padding: 10, cursor: 'pointer' }}>
                   <strong>{t.name}</strong>
                   <p>{t.content}</p>
-                 {t.media_url && (
-  <div>
-    <img src={t.media_url} alt="Attachment" style={{ maxWidth: '100px', maxHeight: '100px', objectFit: 'cover', marginTop: '5px' }} />
-  </div>
-)}
-
+                  {t.media_url && (
+                    <div style={{ marginTop: 10 }}>
+                      <img 
+                        src={t.media_url} 
+                        alt="Template Media" 
+                        style={{ maxWidth: 120, maxHeight: 120, border: '1px solid #ddd', borderRadius: 4 }} 
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
