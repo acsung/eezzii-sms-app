@@ -153,7 +153,7 @@ export default function Inbox() {
                 <div key={t.id} onClick={() => applyTemplate(t)} style={{ borderBottom: '1px solid #ddd', padding: 10, cursor: 'pointer' }}>
                   <strong>{t.name}</strong>
                   <p>{t.content}</p>
-                  {t.media_url && <img src={t.media_url} alt='media' style={{ maxWidth: '100%' }} />}
+                  {t.media_url && <a href={t.media_url} target='_blank' rel='noopener noreferrer'>📎 View Attachment</a>}
                 </div>
               ))}
             </div>
