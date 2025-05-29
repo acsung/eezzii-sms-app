@@ -1,4 +1,4 @@
-// pages/inbox.js – EEZZZII Inbox View with Sidebar and Contact Threads
+// pages/inbox.js – EEZZZII Inbox View with Highlighted Contacts
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
@@ -89,15 +89,25 @@ export default function Inbox() {
         <div style={{ width: 250, marginRight: 20 }}>
           <h3>📇 Contacts</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {contacts.map((c) => (
-              <li key={c.id} style={{ marginBottom: 10 }}>
-                <button
-                  onClick={() => setSelectedContact(c)}
-                  style={{ background: 'white', border: '1px solid #ccc', width: '100%', textAlign: 'left', padding: 8 }}>
-                  {c.phone} <small>({c.tag})</small>
-                </button>
-              </li>
-            ))}
+            {contacts.map((c) => {
+              const isSelected = selectedContact && selectedContact.id === c.id
+              return (
+                <li key={c.id} style={{ marginBottom: 10 }}>
+                  <button
+                    onClick={() => setSelectedContact(c)}
+                    style={{
+                      background: isSelected ? '#d1eaff' : 'white',
+                      border: '1px solid #ccc',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: 8,
+                      fontWeight: isSelected ? 'bold' : 'normal'
+                    }}>
+                    {c.phone} <small>({c.tag})</small>
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         </div>
 
@@ -123,7 +133,7 @@ export default function Inbox() {
               />
               <button onClick={sendMessage} style={{ width: '100%' }}>Send</button>
             </>
-          ) : <p>Select a contact to view messages</p>}
+          ) : <p>Select a contact to view and reply to messages</p>}
         </div>
       </div>
     </div>
