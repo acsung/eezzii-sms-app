@@ -1,6 +1,7 @@
-// pages/inbox.js – EEZZZII Inbox with Tag Filters + Contact View + Import/Export + CSV Deduplication + Report + Field Mapping
+// pages/inbox.js – EEZZZII Inbox with Navigation Dropdown + Tag Filters + Contact View + Import/Export + CSV Deduplication + Mapping + Report
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -9,6 +10,7 @@ const supabase = createClient(
 )
 
 export default function Inbox() {
+  const router = useRouter()
   const [messages, setMessages] = useState([])
   const [contacts, setContacts] = useState([])
   const [selectedTag, setSelectedTag] = useState('')
@@ -111,81 +113,90 @@ export default function Inbox() {
   }
 
   return (
-    <div style={{ display: 'flex', padding: 20, gap: 40, fontFamily: 'sans-serif' }}>
-      <div style={{ width: '30%' }}>
-        <h2>📁 Contact Filters</h2>
-        <select onChange={(e) => setSelectedTag(e.target.value)} value={selectedTag} style={{ width: '100%', marginBottom: 10 }}>
-          <option value=''>-- View All Tags --</option>
-          {tags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+    <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
+      <nav style={{ marginBottom: 20 }}>
+        <select onChange={(e) => router.push(e.target.value)} style={{ padding: 6 }}>
+          <option value='/inbox' disabled selected>📂 Navigate</option>
+          <option value='/'>🔁 Go to SMS Blaster</option>
+          <option value='/inbox'>📨 Inbox</option>
         </select>
+      </nav>
+      <div style={{ display: 'flex', gap: 40 }}>
+        <div style={{ width: '30%' }}>
+          <h2>📁 Contact Filters</h2>
+          <select onChange={(e) => setSelectedTag(e.target.value)} value={selectedTag} style={{ width: '100%', marginBottom: 10 }}>
+            <option value=''>-- View All Tags --</option>
+            {tags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+          </select>
 
-        <h3>👤 Contacts</h3>
-        <ul>
-          {filteredContacts.map(contact => (
-            <li key={contact.id} onClick={() => setSelectedContact(contact)} style={{ cursor: 'pointer', marginBottom: 6 }}>
-              {contact.phone} {contact.tag ? `(${contact.tag})` : ''}
-            </li>
-          ))}
-        </ul>
+          <h3>👤 Contacts</h3>
+          <ul>
+            {filteredContacts.map(contact => (
+              <li key={contact.id} onClick={() => setSelectedContact(contact)} style={{ cursor: 'pointer', marginBottom: 6 }}>
+                {contact.phone} {contact.tag ? `(${contact.tag})` : ''}
+              </li>
+            ))}
+          </ul>
 
-        <hr />
-        <h4>📤 Import Contacts CSV</h4>
-        <input
-          type='text'
-          placeholder='Optional tag to assign'
-          value={csvTag}
-          onChange={(e) => setCsvTag(e.target.value)}
-          style={{ width: '100%', marginBottom: 6 }}
-        />
-        <input type='file' accept='.csv,.txt' onChange={handleFileLoad} style={{ width: '100%' }} />
+          <hr />
+          <h4>📤 Import Contacts CSV</h4>
+          <input
+            type='text'
+            placeholder='Optional tag to assign'
+            value={csvTag}
+            onChange={(e) => setCsvTag(e.target.value)}
+            style={{ width: '100%', marginBottom: 6 }}
+          />
+          <input type='file' accept='.csv,.txt' onChange={handleFileLoad} style={{ width: '100%' }} />
 
-        {csvHeaders.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <label>📞 Map Phone Column:</label>
-            <select onChange={e => setMapping(m => ({ ...m, phone: e.target.value }))} value={mapping.phone} style={{ width: '100%' }}>
-              <option value=''>-- Select Column --</option>
-              {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-            </select>
-            <label>🏷️ Map Tag Column:</label>
-            <select onChange={e => setMapping(m => ({ ...m, tag: e.target.value }))} value={mapping.tag} style={{ width: '100%', marginBottom: 6 }}>
-              <option value=''>-- None --</option>
-              {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-            </select>
-            <button onClick={handleCsvImport} style={{ width: '100%' }}>Import Mapped Contacts</button>
-          </div>
-        )}
+          {csvHeaders.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <label>📞 Map Phone Column:</label>
+              <select onChange={e => setMapping(m => ({ ...m, phone: e.target.value }))} value={mapping.phone} style={{ width: '100%' }}>
+                <option value=''>-- Select Column --</option>
+                {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+              <label>🏷️ Map Tag Column:</label>
+              <select onChange={e => setMapping(m => ({ ...m, tag: e.target.value }))} value={mapping.tag} style={{ width: '100%', marginBottom: 6 }}>
+                <option value=''>-- None --</option>
+                {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+              <button onClick={handleCsvImport} style={{ width: '100%' }}>Import Mapped Contacts</button>
+            </div>
+          )}
 
-        {importReport && (
-          <div style={{ marginTop: 10, fontSize: '0.9rem' }}>
-            <strong>✅ Imported:</strong> {importReport.inserted.length}<br />
-            <strong>⛔ Skipped (already exist):</strong> {importReport.skipped.length}<br />
-            {importReport.skipped.length > 0 && (
-              <details style={{ marginTop: 4 }}>
-                <summary>View Skipped</summary>
-                <ul style={{ paddingLeft: 20 }}>
-                  {importReport.skipped.map(c => (
-                    <li key={c.phone}>{c.phone} {c.tag && `(${c.tag})`}</li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </div>
-        )}
+          {importReport && (
+            <div style={{ marginTop: 10, fontSize: '0.9rem' }}>
+              <strong>✅ Imported:</strong> {importReport.inserted.length}<br />
+              <strong>⛔ Skipped (already exist):</strong> {importReport.skipped.length}<br />
+              {importReport.skipped.length > 0 && (
+                <details style={{ marginTop: 4 }}>
+                  <summary>View Skipped</summary>
+                  <ul style={{ paddingLeft: 20 }}>
+                    {importReport.skipped.map(c => (
+                      <li key={c.phone}>{c.phone} {c.tag && `(${c.tag})`}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
 
-        <h4 style={{ marginTop: 20 }}>⬇️ Export</h4>
-        <button onClick={handleExport} style={{ width: '100%' }}>Export Filtered Contacts</button>
-      </div>
+          <h4 style={{ marginTop: 20 }}>⬇️ Export</h4>
+          <button onClick={handleExport} style={{ width: '100%' }}>Export Filtered Contacts</button>
+        </div>
 
-      <div style={{ width: '70%' }}>
-        <h2>📨 Messages {selectedContact ? `for ${selectedContact.phone}` : ''}</h2>
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {filteredMessages.map(m => (
-            <li key={m.id} style={{ marginBottom: 10 }}>
-              <b>{m.direction === 'inbound' ? m.sender : m.recipient}</b>: {m.content} <br />
-              <small>{new Date(m.created_at).toLocaleString()}</small>
-            </li>
-          ))}
-        </ul>
+        <div style={{ width: '70%' }}>
+          <h2>📨 Messages {selectedContact ? `for ${selectedContact.phone}` : ''}</h2>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {filteredMessages.map(m => (
+              <li key={m.id} style={{ marginBottom: 10 }}>
+                <b>{m.direction === 'inbound' ? m.sender : m.recipient}</b>: {m.content} <br />
+                <small>{new Date(m.created_at).toLocaleString()}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   )
