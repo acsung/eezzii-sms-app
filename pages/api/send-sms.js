@@ -33,10 +33,11 @@ export default async function handler(req, res) {
 
   try {
     const sent = await client.messages.create({
-      body: message,
-      from: process.env.TWILIO_PHONE_NUMBER, // make sure this is set in Vercel
-      to: to,
-    })
+  body: message,
+  messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+  to: to,
+})
+
 
     console.log('✅ Twilio message SID:', sent.sid)
 
