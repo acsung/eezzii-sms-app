@@ -2,11 +2,13 @@
 import { Twilio } from 'twilio'
 import { createClient } from '@supabase/supabase-js'
 
+// Initialize Twilio
 const client = new Twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 )
 
+// Initialize Supabase
 const supabase = createClient(
   'https://xawgyywwsykfncoskjjp.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -23,12 +25,20 @@ export default async function handler(req, res) {
     return res.status(400).send('Missing fields')
   }
 
+  // 🔍 Debug Logging
+  console.log('🔥 Attempting to send SMS')
+  console.log('To:', to)
+  console.log('Message:', message)
+  console.log('From:', process.env.TWILIO_PHONE_NUMBER)
+
   try {
     const sent = await client.messages.create({
       body: message,
-      from: process.env.TWILIO_PHONE_NUMBER,
+      from: process.env.TWILIO_PHONE_NUMBER, // make sure this is set in Vercel
       to: to,
     })
+
+    console.log('✅ Twilio message SID:', sent.sid)
 
     // Lookup contact by phone
     const { data: contact, error: lookupError } = await supabase
@@ -57,11 +67,13 @@ export default async function handler(req, res) {
 
     if (insertError) {
       console.error('❌ Failed to log outbound message:', insertError)
+    } else {
+      console.log('✅ Message logged to Supabase')
     }
 
     return res.status(200).json({ success: true, sid: sent.sid })
   } catch (err) {
     console.error('❌ SMS sending failed:', err)
-    return res.status(500).send('Failed to send SMS')
+    return res.status(500).json({ success: false, error: err.message })
   }
 }
