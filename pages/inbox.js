@@ -91,6 +91,7 @@ export default function Inbox() {
           <ul style={{ listStyle: 'none', padding: 0 }}>
             <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/')}>📤 SMS Blaster</button></li>
             <li><button style={{ background: 'none', border: 'none', padding: 10 }} disabled>📨 Inbox</button></li>
+            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/templates')}>📋 Templates</button></li>
           </ul>
         </div>
       )}
