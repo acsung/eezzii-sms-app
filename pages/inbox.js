@@ -1,4 +1,4 @@
-// pages/inbox.js – EEZZZII Inbox with Tag Filters + Contact View
+// pages/inbox.js – EEZZZII Inbox with Tag Filters + Contact View + Import/Export
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -13,6 +13,7 @@ export default function Inbox() {
   const [contacts, setContacts] = useState([])
   const [selectedTag, setSelectedTag] = useState('')
   const [selectedContact, setSelectedContact] = useState(null)
+  const [csvTag, setCsvTag] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,6 +41,36 @@ export default function Inbox() {
     ? messages.filter(m => m.recipient === selectedContact.phone || m.sender === selectedContact.phone)
     : messages
 
+  const handleImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file || !csvTag) {
+      alert('Select a tag and CSV file first.')
+      return
+    }
+    const text = await file.text()
+    const lines = text.trim().split('\n')
+    const imported = lines.map(phone => ({ phone: phone.trim(), tag: csvTag }))
+    const { error } = await supabase.from('contacts').upsert(imported, { onConflict: ['phone'] })
+    if (error) {
+      alert('Import failed')
+    } else {
+      alert('Contacts imported successfully')
+      location.reload()
+    }
+  }
+
+  const handleExport = () => {
+    const filtered = selectedTag ? contacts.filter(c => c.tag === selectedTag) : contacts
+    const csv = filtered.map(c => `${c.phone},${c.tag || ''}`).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'contacts_export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div style={{ display: 'flex', padding: 20, gap: 40, fontFamily: 'sans-serif' }}>
       {/* Left column – Filters + Contact list */}
@@ -58,6 +89,20 @@ export default function Inbox() {
             </li>
           ))}
         </ul>
+
+        <hr />
+        <h4>📤 Import Contacts CSV</h4>
+        <input
+          type='text'
+          placeholder='Tag to assign'
+          value={csvTag}
+          onChange={(e) => setCsvTag(e.target.value)}
+          style={{ width: '100%', marginBottom: 6 }}
+        />
+        <input type='file' accept='.csv,.txt' onChange={handleImport} style={{ width: '100%' }} />
+
+        <h4 style={{ marginTop: 20 }}>⬇️ Export</h4>
+        <button onClick={handleExport} style={{ width: '100%' }}>Export Filtered Contacts</button>
       </div>
 
       {/* Right column – Message Threads */}
