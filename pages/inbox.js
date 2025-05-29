@@ -1,8 +1,8 @@
-// pages/inbox.js – EEZZZII Inbox View with Sidebar Navigation
+// pages/inbox.js – EEZZZII Inbox View with Sidebar and Contact Threads
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import { useRouter } from 'next/router'
+import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   'https://xawgyywwsykfncoskjjp.supabase.co',
@@ -13,28 +13,46 @@ export default function Inbox() {
   const router = useRouter()
   const [contacts, setContacts] = useState([])
   const [messages, setMessages] = useState([])
-  const [activeTag, setActiveTag] = useState('')
+  const [selectedContact, setSelectedContact] = useState(null)
+  const [reply, setReply] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
-    fetchData()
+    const fetchContacts = async () => {
+      const { data } = await supabase.from('contacts').select('*')
+      setContacts(data || [])
+    }
+    fetchContacts()
   }, [])
 
-  const fetchData = async () => {
-    const { data: contactList } = await supabase.from('contacts').select('*')
-    const { data: messageList } = await supabase.from('messages').select('*').order('created_at', { ascending: false })
-    setContacts(contactList)
-    setMessages(messageList)
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!selectedContact) return
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('recipient', selectedContact.phone)
+        .order('created_at', { ascending: true })
+      setMessages(data || [])
+    }
+    fetchMessages()
+  }, [selectedContact])
+
+  const sendMessage = async () => {
+    if (!reply.trim() || !selectedContact) return
+    await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: selectedContact.phone, message: reply })
+    })
+    setReply('')
+    setMessages((prev) => [...prev, {
+      recipient: selectedContact.phone,
+      content: reply,
+      status: 'sent',
+      created_at: new Date().toISOString(),
+    }])
   }
-
-  const filteredContacts = activeTag
-    ? contacts.filter((c) => c.tag === activeTag)
-    : contacts
-
-  const messagesByPhone = (phone) =>
-    messages.filter((m) => m.recipient === phone || m.sender === phone)
-
-  const allTags = Array.from(new Set(contacts.map((c) => c.tag))).filter(Boolean)
 
   return (
     <div style={{ fontFamily: 'sans-serif' }}>
@@ -60,40 +78,53 @@ export default function Inbox() {
         }}>
           <h3>📁 Navigation</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/')}>🔁 Go to SMS Blaster</button></li>
+            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/')}>📤 SMS Blaster</button></li>
             <li><button style={{ background: 'none', border: 'none', padding: 10 }} disabled>📨 Inbox</button></li>
           </ul>
         </div>
       )}
 
-      {/* Main content */}
-      <div style={{ padding: '60px 20px 20px 20px', marginLeft: menuOpen ? 270 : 20 }}>
-        <h2>📁 Contact Filters</h2>
-        <select value={activeTag} onChange={(e) => setActiveTag(e.target.value)}>
-          <option value=''>-- View All Tags --</option>
-          {allTags.map((tag) => (
-            <option key={tag} value={tag}>{tag}</option>
-          ))}
-        </select>
+      <div style={{ display: 'flex', marginLeft: menuOpen ? 270 : 20, padding: 20 }}>
+        {/* Contact list */}
+        <div style={{ width: 250, marginRight: 20 }}>
+          <h3>📇 Contacts</h3>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {contacts.map((c) => (
+              <li key={c.id} style={{ marginBottom: 10 }}>
+                <button
+                  onClick={() => setSelectedContact(c)}
+                  style={{ background: 'white', border: '1px solid #ccc', width: '100%', textAlign: 'left', padding: 8 }}>
+                  {c.phone} <small>({c.tag})</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <h3>📞 Contacts</h3>
-        <ul>
-          {filteredContacts.map((c) => (
-            <li key={c.id}>
-              {c.phone} {c.tag && <span>({c.tag})</span>}
-            </li>
-          ))}
-        </ul>
-
-        <h3>📨 Messages</h3>
-        <ul>
-          {messages.map((m) => (
-            <li key={m.id}>
-              <strong>{m.recipient || m.sender}</strong>: {m.content}<br />
-              <small>{new Date(m.created_at).toLocaleString()}</small>
-            </li>
-          ))}
-        </ul>
+        {/* Message thread */}
+        <div style={{ flex: 1 }}>
+          <h3>🧾 Messages</h3>
+          {selectedContact ? (
+            <>
+              <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 10, border: '1px solid #eee', padding: 10 }}>
+                {messages.map((m, i) => (
+                  <div key={i} style={{ marginBottom: 10 }}>
+                    <b>{m.status === 'received' ? selectedContact.phone : 'You'}:</b> {m.content}
+                    <div style={{ fontSize: '0.8em', color: '#999' }}>{new Date(m.created_at).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+              <textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                rows={3}
+                style={{ width: '100%', marginBottom: 10 }}
+                placeholder='Type a reply...'
+              />
+              <button onClick={sendMessage} style={{ width: '100%' }}>Send</button>
+            </>
+          ) : <p>Select a contact to view messages</p>}
+        </div>
       </div>
     </div>
   )
