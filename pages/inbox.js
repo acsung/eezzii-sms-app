@@ -1,139 +1,128 @@
-// eezzii-sms-app: includes main SMS blast + /inbox reply viewer UI
-
-import { useEffect, useState } from 'react'
+// /pages/inbox.js
+import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import Link from 'next/link'
 
 const supabase = createClient(
   'https://xawgyywwsykfncoskjjp.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhd2d5eXd3c3lrZm5jb3NrampwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNjEzMTMsImV4cCI6MjA2MzkzNzMxM30.nV7_dMGdVZt-Qm5g2Augq6Q-xmFsTzs1ZJx3TG58PJE'
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
 export default function Inbox() {
-  const [messages, setMessages] = useState([])
-  const [grouped, setGrouped] = useState({})
-  const [selected, setSelected] = useState(null)
-  const [reply, setReply] = useState('')
+  const [conversations, setConversations] = useState([])
+  const [activeContact, setActiveContact] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [messageText, setMessageText] = useState('')
 
-  const handleReply = async () => {
-    if (!reply.trim() || !selected) return
+  const loadMessages = async () => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*, contacts(*)')
+      .order('created_at', { ascending: true })
 
-    const res = await fetch('/api/send-sms', {
+    if (!error) {
+      const grouped = {}
+      data.forEach((msg) => {
+        const phone = msg.recipient || msg.sender
+        if (!grouped[phone]) grouped[phone] = []
+        grouped[phone].push(msg)
+      })
+      setConversations(grouped)
+    }
+  }
+
+  const filteredContacts = Object.entries(conversations).filter(
+    ([phone, messages]) => {
+      const contact = messages[0].contacts || {}
+      const combinedText = `${contact.name || ''} ${contact.email || ''} ${contact.notes || ''} ${phone}`.toLowerCase()
+      return combinedText.includes(searchTerm.toLowerCase())
+    }
+  )
+
+  const sendReply = async () => {
+    if (!activeContact || !messageText.trim()) return
+
+    const phone = activeContact
+    const { data, error } = await fetch('/api/send-sms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: selected,
-        message: reply
-      })
+      body: JSON.stringify({ to: phone, message: messageText })
     })
 
-    const result = await res.json()
-    console.log('Sent:', result)
-    setReply('')
+    if (!error) {
+      setMessageText('')
+      loadMessages()
+    }
   }
 
   useEffect(() => {
-    const fetchMessages = async () => {
-      const { data } = await supabase
-        .from('inbound_messages')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      const threads = {}
-      for (const msg of data) {
-        if (!threads[msg.sender]) threads[msg.sender] = []
-        threads[msg.sender].push(msg)
-      }
-      setGrouped(threads)
-      setMessages(data)
-    }
-
-    fetchMessages()
-    const interval = setInterval(fetchMessages, 5000)
-    return () => clearInterval(interval)
+    loadMessages()
   }, [])
 
   return (
-    <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '1rem' }}>📥 EEZZZII Inbox</h1>
-      {Object.keys(grouped).length === 0 ? (
-        <p>No inbound messages yet.</p>
-      ) : (
-        <div style={{ display: 'flex', gap: '2rem' }}>
-          <aside style={{ minWidth: '200px', borderRight: '1px solid #ccc', paddingRight: '1rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '1rem' }}>📱 Threads</h2>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
-              {Object.keys(grouped).map(sender => (
-                <li
-                  key={sender}
-                  style={{ marginBottom: '0.5rem', cursor: 'pointer', fontWeight: sender === selected ? 'bold' : 'normal' }}
-                  onClick={() => setSelected(sender)}
-                >
-                  {sender}
-                </li>
-              ))}
-            </ul>
-          </aside>
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'sans-serif' }}>
+      {/* Sidebar */}
+      <div style={{ width: '300px', borderRight: '1px solid #ccc', padding: '1rem', overflowY: 'auto' }}>
+        <input
+          type="text"
+          placeholder="Search name, number, tag, note..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{ width: '100%', padding: '0.5rem', marginBottom: '1rem' }}
+        />
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {filteredContacts.map(([phone, msgs]) => (
+            <li
+              key={phone}
+              onClick={() => setActiveContact(phone)}
+              style={{ padding: '0.5rem', cursor: 'pointer', background: phone === activeContact ? '#f0f0f0' : 'transparent' }}
+            >
+              <strong>{msgs[0].contacts?.name || phone}</strong>
+              <br />
+              <small>{msgs[msgs.length - 1].content}</small>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-          <section style={{ flex: 1 }}>
-            {selected ? (
-              <>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>💬 Messages from {selected}</h2>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                  {grouped[selected].map(msg => (
-                    <li key={msg.id} style={{ marginBottom: '1rem', background: '#f5f5f5', padding: '0.5rem' }}>
-                      <div style={{ fontSize: '0.9rem' }}>{msg.content}</div>
-                      <small style={{ color: '#555' }}>{new Date(msg.created_at).toLocaleString()}</small>
-                    </li>
-                  ))}
-                </ul>
-
-                <form
-                  onSubmit={e => {
-                    e.preventDefault()
-                    handleReply()
-                  }}
-                  style={{ marginTop: '1.5rem' }}
-                >
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                    Send a reply to {selected}:
-                  </label>
-                  <textarea
-                    value={reply}
-                    onChange={e => setReply(e.target.value)}
-                    rows={3}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      fontSize: '0.9rem',
-                      marginBottom: '0.5rem'
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    style={{
-                      background: '#0070f3',
-                      color: 'white',
-                      border: 'none',
-                      padding: '0.5rem 1rem',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Send Reply
-                  </button>
-                </form>
-              </>
-            ) : (
-              <p>Select a sender to view messages.</p>
-            )}
-          </section>
+      {/* Chat Window */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {activeContact && conversations[activeContact]?.map((msg, idx) => (
+            <div key={idx} style={{ marginBottom: '1rem', textAlign: msg.direction === 'outbound' ? 'right' : 'left' }}>
+              <div
+                style={{
+                  display: 'inline-block',
+                  padding: '0.5rem 1rem',
+                  background: msg.direction === 'outbound' ? '#dcf8c6' : '#f1f1f1',
+                  borderRadius: '1rem',
+                  maxWidth: '70%'
+                }}
+              >
+                {msg.content}
+              </div>
+              <br />
+              <small>{new Date(msg.created_at).toLocaleString()}</small>
+            </div>
+          ))}
         </div>
-      )}
 
-      <p style={{ marginTop: '2rem' }}>
-        ⬅️ <Link href="/">Back to SMS Blast</Link>
-      </p>
-    </main>
+        {/* Message Input */}
+        <div style={{ display: 'flex', alignItems: 'center', marginTop: '1rem' }}>
+          <input
+            type="text"
+            placeholder="Type a reply..."
+            value={messageText}
+            onChange={e => setMessageText(e.target.value)}
+            style={{ flex: 1, padding: '0.75rem', border: '1px solid #ccc', borderRadius: '0.5rem' }}
+          />
+          <button
+            onClick={sendReply}
+            style={{ marginLeft: '0.5rem', padding: '0.75rem 1rem', background: '#000', color: '#fff', border: 'none', borderRadius: '0.5rem' }}
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
