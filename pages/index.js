@@ -86,6 +86,26 @@ export default function App() {
   }
 
   return (
+    import { useRouter } from 'next/router'
+
+export default function Home() {
+  const router = useRouter()
+
+  return (
+    <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
+      <nav style={{ marginBottom: 20 }}>
+        <select onChange={(e) => router.push(e.target.value)} style={{ padding: 6 }}>
+          <option value='/' disabled selected>📂 Navigate</option>
+          <option value='/'>🔁 Go to SMS Blaster</option>
+          <option value='/inbox'>📨 Inbox</option>
+        </select>
+      </nav>
+
+      {/* your existing SMS blast UI goes here */}
+    </div>
+  )
+}
+
     <main style={{ padding: '2rem', maxWidth: '650px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '1rem' }}>📢 EEZZZII SMS Blast Tool</h1>
 
