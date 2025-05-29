@@ -36,20 +36,30 @@ export default function App() {
     }
 
     setSending(true)
-    for (const number of phones) {
-      const res = await fetch('/api/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: number, body: message }),
-      })
-      const data = await res.json()
 
-      await supabase.from('messages').insert({
-        recipient: number,
-        content: message,
-        status: data.status || 'sent',
-      })
+    for (const number of phones) {
+      try {
+        const res = await fetch('/api/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: number, message }),
+        })
+
+        const data = await res.json()
+
+        await supabase.from('messages').insert({
+          recipient: number,
+          content: message,
+          status: data.status || 'sent',
+          direction: 'outbound',
+          channel: 'sms',
+          created_at: new Date(),
+        })
+      } catch (err) {
+        console.error('Failed to send message or log to Supabase:', err)
+      }
     }
+
     setSending(false)
     alert('Messages sent!')
   }
@@ -130,4 +140,4 @@ export default function App() {
       </ul>
     </main>
   )
-} 
+}
