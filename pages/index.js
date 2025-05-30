@@ -65,24 +65,33 @@ export default function SMSBlaster() {
     }
 
     const template = templates.find(t => t.id === selectedTemplate)
-    const now = new Date()
     const scheduled = new Date(scheduledTime)
 
     const [startHour, endHour] = broadcastHours
       ? [broadcastHours.start, broadcastHours.end]
       : ['08:00', '20:00']
+    const allowedDays = broadcastHours?.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 
     const [startH, startM] = startHour.split(':').map(Number)
     const [endH, endM] = endHour.split(':').map(Number)
 
-    const withinWindow =
-      scheduled.getHours() > startH ||
-      (scheduled.getHours() === startH && scheduled.getMinutes() >= startM)
-    &&
-      scheduled.getHours() < endH ||
-      (scheduled.getHours() === endH && scheduled.getMinutes() <= endM)
+    const scheduledH = scheduled.getHours()
+    const scheduledM = scheduled.getMinutes()
 
-    if (!withinWindow) {
+    const withinTime =
+      (scheduledH > startH || (scheduledH === startH && scheduledM >= startM)) &&
+      (scheduledH < endH || (scheduledH === endH && scheduledM <= endM))
+
+    const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const scheduledDay = dayAbbr[scheduled.getDay()]
+    const withinDay = allowedDays.includes(scheduledDay)
+
+    if (!withinDay) {
+      alert(`Broadcasts are not allowed on ${scheduledDay}. Please choose another day.`)
+      return
+    }
+
+    if (!withinTime) {
       alert(`Scheduled time is outside your broadcast window (${startHour}–${endHour})`)
       return
     }
