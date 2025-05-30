@@ -34,6 +34,8 @@ export default function SMSBlaster() {
       const { data } = await supabase.from('app_settings').select('*').eq('key', 'broadcast_hours').single()
       if (data?.value) {
         setBroadcastHours(JSON.parse(data.value))
+      } else {
+        setBroadcastHours(false)
       }
     }
 
@@ -59,18 +61,18 @@ export default function SMSBlaster() {
   }
 
   const getBroadcastStatus = () => {
-if (!broadcastHours) {
-  return {
-    allowed: false,
-    message: '⚠️ Broadcast window not set. Please update your settings.'
-  }
-}
-
+    if (broadcastHours === null) return null // Still loading
+    if (!broadcastHours || !broadcastHours.start || !broadcastHours.end || !broadcastHours.days) {
+      return {
+        allowed: false,
+        message: '⚠️ Broadcast hours are not configured. Please update your settings.'
+      }
+    }
 
     const now = new Date()
     const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     const today = dayAbbr[now.getDay()]
-    const allowedDays = broadcastHours.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+    const allowedDays = broadcastHours.days
     const [startH, startM] = broadcastHours.start.split(':').map(Number)
     const [endH, endM] = broadcastHours.end.split(':').map(Number)
     const nowH = now.getHours()
@@ -158,7 +160,7 @@ if (!broadcastHours) {
     <div style={{ fontFamily: 'sans-serif', padding: 20 }}>
       <h2>📨 EEZZZII SMS Blaster</h2>
 
-      {broadcastHours && (
+      {getBroadcastStatus() && (
         <div style={{
           background: getBroadcastStatus().allowed ? '#e6ffe6' : '#fff4f4',
           color: getBroadcastStatus().allowed ? 'green' : 'red',
@@ -192,38 +194,4 @@ if (!broadcastHours) {
         </select>
       </div>
 
-      {contacts.length > 0 && (
-        <div style={{ marginBottom: 15 }}>
-          <h4>Recipients</h4>
-          {contacts.map((c) => (
-            <div key={c.id}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selectedContacts.includes(c.phone)}
-                  onChange={() => toggleContact(c.phone)}
-                /> {c.phone} <small>({c.tag})</small>
-              </label>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 15 }}>
-        <label>Schedule Send Time:</label><br />
-        <input
-          type="datetime-local"
-          value={scheduledTime}
-          onChange={(e) => setScheduledTime(e.target.value)}
-          style={{ width: '100%' }}
-        />
-      </div>
-
-      <button onClick={sendMessages} disabled={sending}>
-        {sending ? 'Sending...' : 'Send SMS Blast'}
-      </button>
-
-      {message && <p style={{ color: 'green' }}>{message}</p>}
-    </div>
-  )
-}
+      {contact
