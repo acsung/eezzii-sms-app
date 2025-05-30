@@ -61,7 +61,7 @@ export default function SMSBlaster() {
   }
 
   const getBroadcastStatus = () => {
-    if (broadcastHours === null) return null // Still loading
+    if (broadcastHours === null) return null
     if (!broadcastHours || !broadcastHours.start || !broadcastHours.end || !broadcastHours.days) {
       return {
         allowed: false,
@@ -146,7 +146,7 @@ export default function SMSBlaster() {
         template_id: template.id
       })
 
-      await new Promise(res => setTimeout(res, 500)) // Delay between sends
+      await new Promise(res => setTimeout(res, 500))
     }
 
     setMessage('Messages scheduled successfully.')
@@ -194,7 +194,22 @@ export default function SMSBlaster() {
         </select>
       </div>
 
-          )}
+      {contacts.length > 0 && (
+        <div style={{ marginBottom: 15 }}>
+          <h4>Recipients</h4>
+          {contacts.map((c) => (
+            <div key={c.id}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={selectedContacts.includes(c.phone)}
+                  onChange={() => toggleContact(c.phone)}
+                /> {c.phone} <small>({c.tag})</small>
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ marginBottom: 15 }}>
         <label>Schedule Send Time:</label><br />
