@@ -58,35 +58,36 @@ export default function SMSBlaster() {
     )
   }
 
+  const getBroadcastStatus = () => {
+    if (!broadcastHours) return { allowed: true, message: '' }
+
+    const now = new Date()
+    const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const today = dayAbbr[now.getDay()]
+    const allowedDays = broadcastHours.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+    const [startH, startM] = broadcastHours.start.split(':').map(Number)
+    const [endH, endM] = broadcastHours.end.split(':').map(Number)
+    const nowH = now.getHours()
+    const nowM = now.getMinutes()
+
+    const withinDay = allowedDays.includes(today)
+    const withinTime =
+      (nowH > startH || (nowH === startH && nowM >= startM)) &&
+      (nowH < endH || (nowH === endH && nowM <= endM))
+
+    return {
+      allowed: withinDay && withinTime,
+      message: withinDay && withinTime
+        ? `✅ SMS blasts allowed right now (${today}, ${broadcastHours.start}–${broadcastHours.end})`
+        : `⚠️ Blasts not allowed right now (${today}). Adjust your schedule or settings.`
+    }
+  }
+
   const sendMessages = async () => {
     if (!selectedTemplate || selectedContacts.length === 0) {
       alert('Select a template and at least one contact.')
       return
     }
-const getBroadcastStatus = () => {
-  if (!broadcastHours) return null
-
-  const now = new Date()
-  const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const today = dayAbbr[now.getDay()]
-  const allowedDays = broadcastHours.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-  const [startH, startM] = broadcastHours.start.split(':').map(Number)
-  const [endH, endM] = broadcastHours.end.split(':').map(Number)
-  const nowH = now.getHours()
-  const nowM = now.getMinutes()
-
-  const withinDay = allowedDays.includes(today)
-  const withinTime =
-    (nowH > startH || (nowH === startH && nowM >= startM)) &&
-    (nowH < endH || (nowH === endH && nowM <= endM))
-
-  return {
-    allowed: withinDay && withinTime,
-    message: withinDay && withinTime
-      ? `✅ SMS blasts allowed right now (${today}, ${broadcastHours.start}–${broadcastHours.end})`
-      : `⚠️ Blasts not allowed right now (${today}). Check your settings.`
-  }
-}
 
     const template = templates.find(t => t.id === selectedTemplate)
     const scheduled = new Date(scheduledTime)
@@ -150,25 +151,20 @@ const getBroadcastStatus = () => {
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 20 }}>
       <h2>📨 EEZZZII SMS Blaster</h2>
-{broadcastHours && (
-  <div style={{ 
-    background: getBroadcastStatus().allowed ? '#e6ffe6' : '#fff4f4', 
-    color: getBroadcastStatus().allowed ? 'green' : 'red',
-    padding: '10px 15px',
-    marginBottom: 15,
-    border: '1px solid',
-    borderColor: getBroadcastStatus().allowed ? '#90ee90' : '#f5a9a9',
-    borderRadius: 6
-  }}>
-    {getBroadcastStatus().message}
-  </div>
-)}
 
-{broadcastHours && (
-  <div style={{ marginBottom: 15, fontWeight: 'bold', color: getBroadcastStatus().allowed ? 'green' : 'red' }}>
-    {getBroadcastStatus().message}
-  </div>
-)}
+      {broadcastHours && (
+        <div style={{
+          background: getBroadcastStatus().allowed ? '#e6ffe6' : '#fff4f4',
+          color: getBroadcastStatus().allowed ? 'green' : 'red',
+          padding: '10px 15px',
+          marginBottom: 15,
+          border: '1px solid',
+          borderColor: getBroadcastStatus().allowed ? '#90ee90' : '#f5a9a9',
+          borderRadius: 6
+        }}>
+          {getBroadcastStatus().message}
+        </div>
+      )}
 
       <div style={{ marginBottom: 15 }}>
         <label>Template:</label><br />
