@@ -12,6 +12,8 @@ export default function TemplatesPage() {
   const [editingTemplate, setEditingTemplate] = useState(null)
   const [editContent, setEditContent] = useState('')
   const [editName, setEditName] = useState('')
+  const [editMediaUrl, setEditMediaUrl] = useState(null)
+  const [newEditFile, setNewEditFile] = useState(null)
   const [newTemplate, setNewTemplate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newContent, setNewContent] = useState('')
@@ -92,6 +94,41 @@ export default function TemplatesPage() {
     setUploading(false)
   }
 
+  const handleEditSave = async () => {
+    setUploading(true)
+    let updatedMediaUrl = editMediaUrl
+
+    if (newEditFile) {
+      const uploadedUrl = await handleUpload(newEditFile)
+      if (!uploadedUrl) {
+        setUploading(false)
+        return
+      }
+      updatedMediaUrl = uploadedUrl
+    }
+
+    await supabase
+      .from('message_templates')
+      .update({
+        name: editName,
+        content: editContent,
+        media_url: updatedMediaUrl
+      })
+      .eq('id', editingTemplate.id)
+
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === editingTemplate.id
+          ? { ...t, name: editName, content: editContent, media_url: updatedMediaUrl }
+          : t
+      )
+    )
+
+    setEditingTemplate(null)
+    setNewEditFile(null)
+    setUploading(false)
+  }
+
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 20 }}>
       <h2>📋 Message Templates</h2>
@@ -162,6 +199,7 @@ export default function TemplatesPage() {
                   setEditingTemplate(t)
                   setEditName(t.name)
                   setEditContent(t.content)
+                  setEditMediaUrl(t.media_url)
                 }}
                 style={{ marginRight: 10 }}
               >
@@ -190,25 +228,31 @@ export default function TemplatesPage() {
             rows={4}
             style={{ width: '100%', marginBottom: 10 }}
           />
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              onClick={async () => {
-                await supabase
-                  .from('message_templates')
-                  .update({ name: editName, content: editContent })
-                  .eq('id', editingTemplate.id)
 
-                setTemplates((prev) =>
-                  prev.map((t) =>
-                    t.id === editingTemplate.id
-                      ? { ...t, name: editName, content: editContent }
-                      : t
-                  )
-                )
-                setEditingTemplate(null)
-              }}
-            >
-              Save
+          {editMediaUrl && (
+            <div style={{ marginBottom: 10 }}>
+              <img
+                src={editMediaUrl}
+                alt="Current Media"
+                style={{ maxWidth: 120, maxHeight: 120, border: '1px solid #ddd', borderRadius: 4 }}
+              />
+              <div>
+                <button onClick={() => setEditMediaUrl(null)} style={{ color: 'red', marginTop: 5 }}>
+                  Remove Attachment
+                </button>
+              </div>
+            </div>
+          )}
+
+          <input
+            type="file"
+            onChange={(e) => setNewEditFile(e.target.files[0])}
+            style={{ marginBottom: 10 }}
+          />
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={handleEditSave} disabled={uploading}>
+              {uploading ? 'Saving...' : 'Save'}
             </button>
             <button onClick={() => setEditingTemplate(null)}>Cancel</button>
           </div>
