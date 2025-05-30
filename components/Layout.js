@@ -32,6 +32,7 @@ export default function Layout({ children }) {
             <li><button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', padding: 10 }}>📤 SMS Blaster</button></li>
             <li><button onClick={() => router.push('/inbox')} style={{ background: 'none', border: 'none', padding: 10 }}>📨 Inbox</button></li>
             <li><button onClick={() => router.push('/templates')} style={{ background: 'none', border: 'none', padding: 10 }}>📋 Templates</button></li>
+          <li><button onClick={() => router.push('/settings')} style={{ background: 'none', border: 'none', padding: 10 }}>⚙️ Settings</button></li>
           </ul>
         </div>
       )}
