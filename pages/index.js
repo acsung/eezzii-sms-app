@@ -194,5 +194,23 @@ export default function SMSBlaster() {
         </select>
       </div>
 
-      {contact
-      }
+          )}
+
+      <div style={{ marginBottom: 15 }}>
+        <label>Schedule Send Time:</label><br />
+        <input
+          type="datetime-local"
+          value={scheduledTime}
+          onChange={(e) => setScheduledTime(e.target.value)}
+          style={{ width: '100%' }}
+        />
+      </div>
+
+      <button onClick={sendMessages} disabled={sending}>
+        {sending ? 'Sending...' : 'Send SMS Blast'}
+      </button>
+
+      {message && <p style={{ color: 'green' }}>{message}</p>}
+    </div>
+  )
+}
