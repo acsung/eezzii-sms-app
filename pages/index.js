@@ -59,7 +59,13 @@ export default function SMSBlaster() {
   }
 
   const getBroadcastStatus = () => {
-    if (!broadcastHours) return { allowed: true, message: '' }
+if (!broadcastHours) {
+  return {
+    allowed: false,
+    message: '⚠️ Broadcast window not set. Please update your settings.'
+  }
+}
+
 
     const now = new Date()
     const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
