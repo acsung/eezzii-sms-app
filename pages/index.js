@@ -151,6 +151,20 @@ const getBroadcastStatus = () => {
     <div style={{ fontFamily: 'sans-serif', padding: 20 }}>
       <h2>📨 EEZZZII SMS Blaster</h2>
 {broadcastHours && (
+  <div style={{ 
+    background: getBroadcastStatus().allowed ? '#e6ffe6' : '#fff4f4', 
+    color: getBroadcastStatus().allowed ? 'green' : 'red',
+    padding: '10px 15px',
+    marginBottom: 15,
+    border: '1px solid',
+    borderColor: getBroadcastStatus().allowed ? '#90ee90' : '#f5a9a9',
+    borderRadius: 6
+  }}>
+    {getBroadcastStatus().message}
+  </div>
+)}
+
+{broadcastHours && (
   <div style={{ marginBottom: 15, fontWeight: 'bold', color: getBroadcastStatus().allowed ? 'green' : 'red' }}>
     {getBroadcastStatus().message}
   </div>
