@@ -1,7 +1,4 @@
-// pages/index.js – EEZZZII SMS Blaster Page with Sidebar Navigation
-
-import { useState } from 'react'
-import { useRouter } from 'next/router'
+import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -10,84 +7,169 @@ const supabase = createClient(
 )
 
 export default function SMSBlaster() {
-  const router = useRouter()
-  const [to, setTo] = useState('')
+  const [templates, setTemplates] = useState([])
+  const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [tags, setTags] = useState([])
+  const [selectedTag, setSelectedTag] = useState('')
+  const [contacts, setContacts] = useState([])
+  const [selectedContacts, setSelectedContacts] = useState([])
+  const [scheduledTime, setScheduledTime] = useState('')
+  const [broadcastHours, setBroadcastHours] = useState(null)
   const [message, setMessage] = useState('')
-  const [status, setStatus] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [sending, setSending] = useState(false)
 
-  const sendMessage = async () => {
-    setStatus('Sending...')
-    const res = await fetch('/api/send-sms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, message })
-    })
-
-    if (res.ok) {
-      setStatus('✅ Message sent!')
-      setTo('')
-      setMessage('')
-    } else {
-      setStatus('❌ Failed to send message.')
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      const { data } = await supabase.from('message_templates').select('*').order('created_at', { ascending: false })
+      setTemplates(data || [])
     }
+
+    const fetchTags = async () => {
+      const { data } = await supabase.from('contacts').select('tag').neq('tag', '').not('tag', 'is', null)
+      const uniqueTags = [...new Set(data.map((d) => d.tag))]
+      setTags(uniqueTags)
+    }
+
+    const fetchBroadcastHours = async () => {
+      const { data } = await supabase.from('app_settings').select('*').eq('key', 'broadcast_hours').single()
+      if (data?.value) {
+        setBroadcastHours(JSON.parse(data.value))
+      }
+    }
+
+    fetchTemplates()
+    fetchTags()
+    fetchBroadcastHours()
+  }, [])
+
+  useEffect(() => {
+    const fetchContactsByTag = async () => {
+      if (!selectedTag) return
+      const { data } = await supabase.from('contacts').select('*').eq('tag', selectedTag)
+      setContacts(data || [])
+      setSelectedContacts(data.map(c => c.phone))
+    }
+    fetchContactsByTag()
+  }, [selectedTag])
+
+  const toggleContact = (phone) => {
+    setSelectedContacts(prev =>
+      prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
+    )
+  }
+
+  const sendMessages = async () => {
+    if (!selectedTemplate || selectedContacts.length === 0) {
+      alert('Select a template and at least one contact.')
+      return
+    }
+
+    const template = templates.find(t => t.id === selectedTemplate)
+    const now = new Date()
+    const scheduled = new Date(scheduledTime)
+
+    const [startHour, endHour] = broadcastHours
+      ? [broadcastHours.start, broadcastHours.end]
+      : ['08:00', '20:00']
+
+    const [startH, startM] = startHour.split(':').map(Number)
+    const [endH, endM] = endHour.split(':').map(Number)
+
+    const withinWindow =
+      scheduled.getHours() > startH ||
+      (scheduled.getHours() === startH && scheduled.getMinutes() >= startM)
+    &&
+      scheduled.getHours() < endH ||
+      (scheduled.getHours() === endH && scheduled.getMinutes() <= endM)
+
+    if (!withinWindow) {
+      alert(`Scheduled time is outside your broadcast window (${startHour}–${endHour})`)
+      return
+    }
+
+    setSending(true)
+
+    for (let phone of selectedContacts) {
+      await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: phone, message: template.content })
+      })
+
+      await supabase.from('sms_logs').insert({
+        recipient: phone,
+        content: template.content,
+        status: 'scheduled',
+        scheduled_at: scheduled.toISOString(),
+        template_id: template.id
+      })
+
+      await new Promise(res => setTimeout(res, 500)) // Delay between sends
+    }
+
+    setMessage('Messages scheduled successfully.')
+    setSending(false)
+    setSelectedContacts([])
+    setScheduledTime('')
+    setSelectedTag('')
   }
 
   return (
-    <div style={{ fontFamily: 'sans-serif' }}>
-      {/* Sidebar toggle */}
-      <button 
-        onClick={() => setMenuOpen(!menuOpen)}
-        style={{ position: 'fixed', top: 20, left: 20, zIndex: 10 }}>
-        📋 Menu
-      </button>
+    <div style={{ fontFamily: 'sans-serif', padding: 20 }}>
+      <h2>📨 EEZZZII SMS Blaster</h2>
 
-      {/* Sidebar */}
-      {menuOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: 250,
-          height: '100%',
-          background: '#f4f4f4',
-          padding: 20,
-          boxShadow: '2px 0 5px rgba(0,0,0,0.2)',
-          zIndex: 9
-        }}>
-          <h3>📁 Navigation</h3>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/')}>🔁 Go to SMS Blaster</button></li>
-            <li><button style={{ background: 'none', border: 'none', padding: 10 }} onClick={() => router.push('/inbox')}>📨 Inbox</button></li>
-          </ul>
+      <div style={{ marginBottom: 15 }}>
+        <label>Template:</label><br />
+        <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)} style={{ width: '100%' }}>
+          <option value="">-- Select Template --</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 15 }}>
+        <label>Tag Group:</label><br />
+        <select value={selectedTag} onChange={(e) => setSelectedTag(e.target.value)} style={{ width: '100%' }}>
+          <option value="">-- Select Tag --</option>
+          {tags.map((tag, idx) => (
+            <option key={idx} value={tag}>{tag}</option>
+          ))}
+        </select>
+      </div>
+
+      {contacts.length > 0 && (
+        <div style={{ marginBottom: 15 }}>
+          <h4>Recipients</h4>
+          {contacts.map((c) => (
+            <div key={c.id}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={selectedContacts.includes(c.phone)}
+                  onChange={() => toggleContact(c.phone)}
+                /> {c.phone} <small>({c.tag})</small>
+              </label>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Main content */}
-      <div style={{ padding: '60px 20px 20px 20px', marginLeft: menuOpen ? 270 : 20 }}>
-        <h1>📤 EEZZZII SMS Blaster</h1>
-        <div style={{ maxWidth: 400 }}>
-          <label>Phone Number:</label>
-          <input
-            type='text'
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder='+1234567890'
-            style={{ width: '100%', marginBottom: 10 }}
-          />
-          <label>Message:</label>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={4}
-            style={{ width: '100%', marginBottom: 10 }}
-          />
-          <button onClick={sendMessage} style={{ width: '100%' }}>
-            Send SMS
-          </button>
-          {status && <p style={{ marginTop: 10 }}>{status}</p>}
-        </div>
+      <div style={{ marginBottom: 15 }}>
+        <label>Schedule Send Time:</label><br />
+        <input
+          type="datetime-local"
+          value={scheduledTime}
+          onChange={(e) => setScheduledTime(e.target.value)}
+          style={{ width: '100%' }}
+        />
       </div>
+
+      <button onClick={sendMessages} disabled={sending}>
+        {sending ? 'Sending...' : 'Send SMS Blast'}
+      </button>
+
+      {message && <p style={{ color: 'green' }}>{message}</p>}
     </div>
   )
 }
