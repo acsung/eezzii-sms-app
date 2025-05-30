@@ -29,10 +29,41 @@ export default function Layout({ children }) {
         }}>
           <h3>📁 Navigation</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            <li><button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', padding: 10 }}>📤 SMS Blaster</button></li>
-            <li><button onClick={() => router.push('/inbox')} style={{ background: 'none', border: 'none', padding: 10 }}>📨 Inbox</button></li>
-            <li><button onClick={() => router.push('/templates')} style={{ background: 'none', border: 'none', padding: 10 }}>📋 Templates</button></li>
-          <li><button onClick={() => router.push('/settings')} style={{ background: 'none', border: 'none', padding: 10 }}>⚙️ Settings</button></li>
+            <li>
+              <button 
+                onClick={() => router.push('/')} 
+                style={{ background: 'none', border: 'none', padding: 10 }}>
+                📤 SMS Blaster
+              </button>
+            </li>
+            <li>
+              <button 
+                onClick={() => router.push('/inbox')} 
+                style={{ background: 'none', border: 'none', padding: 10 }}>
+                📨 Inbox
+              </button>
+            </li>
+            <li>
+              <button 
+                onClick={() => router.push('/templates')} 
+                style={{ background: 'none', border: 'none', padding: 10 }}>
+                📋 Templates
+              </button>
+            </li>
+            <li>
+              <button 
+                onClick={() => router.push('/scheduled')} 
+                style={{ background: 'none', border: 'none', padding: 10 }}>
+                🕒 Scheduled
+              </button>
+            </li>
+            <li>
+              <button 
+                onClick={() => router.push('/settings')} 
+                style={{ background: 'none', border: 'none', padding: 10 }}>
+                ⚙️ Settings
+              </button>
+            </li>
           </ul>
         </div>
       )}
