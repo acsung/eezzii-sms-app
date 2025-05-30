@@ -63,6 +63,30 @@ export default function SMSBlaster() {
       alert('Select a template and at least one contact.')
       return
     }
+const getBroadcastStatus = () => {
+  if (!broadcastHours) return null
+
+  const now = new Date()
+  const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const today = dayAbbr[now.getDay()]
+  const allowedDays = broadcastHours.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  const [startH, startM] = broadcastHours.start.split(':').map(Number)
+  const [endH, endM] = broadcastHours.end.split(':').map(Number)
+  const nowH = now.getHours()
+  const nowM = now.getMinutes()
+
+  const withinDay = allowedDays.includes(today)
+  const withinTime =
+    (nowH > startH || (nowH === startH && nowM >= startM)) &&
+    (nowH < endH || (nowH === endH && nowM <= endM))
+
+  return {
+    allowed: withinDay && withinTime,
+    message: withinDay && withinTime
+      ? `✅ SMS blasts allowed right now (${today}, ${broadcastHours.start}–${broadcastHours.end})`
+      : `⚠️ Blasts not allowed right now (${today}). Check your settings.`
+  }
+}
 
     const template = templates.find(t => t.id === selectedTemplate)
     const scheduled = new Date(scheduledTime)
