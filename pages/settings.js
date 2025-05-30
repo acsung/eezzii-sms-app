@@ -43,9 +43,18 @@ export default function SettingsPage() {
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 20 }}>
       <h2>⚙️ Settings</h2>
+
       <div style={{ marginBottom: 20 }}>
         <h4>📆 Broadcast Hours</h4>
-        <p>Select the time window when scheduled texts or SMS blasts are allowed to send.</p>
+        <p style={{ fontSize: '0.9em', marginBottom: 15 }}>
+          📢 <strong>How SMS Blasts Work:</strong><br />
+          When you schedule a blast, SMS messages are sent individually with a short delay (about 0.5 seconds) between each message.
+          This avoids carrier filtering and ensures reliable delivery. If you're sending to 1,000 contacts,
+          it may take roughly 8–10 minutes to complete the full blast.<br /><br />
+          Choose a broadcast window that leaves enough time for all messages to be delivered
+          before the end time.
+        </p>
+
         <label>Start Time:</label>
         <input
           type="time"
