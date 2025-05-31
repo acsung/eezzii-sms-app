@@ -19,6 +19,8 @@ export default function Scheduled() {
   const [templateOptions, setTemplateOptions] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [mediaUrl, setMediaUrl] = useState('')
+  const [mediaFile, setMediaFile] = useState(null)
 
   useEffect(() => {
     const fetchScheduled = async () => {
@@ -63,24 +65,41 @@ export default function Scheduled() {
     setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
     setEditRecipients(selectedMessage.recipient.split(','))
     setSelectedTemplate(selectedMessage.template_id || '')
+    setMediaUrl(selectedMessage.media_url || '')
     setEditing(true)
   }
 
   const saveEdit = async () => {
+    let uploadedMediaUrl = mediaUrl
+
+    if (mediaFile) {
+      const fileExt = mediaFile.name.split('.').pop()
+      const fileName = `${Date.now()}.${fileExt}`
+      const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
+        cacheControl: '3600',
+        upsert: true
+      })
+      if (data) {
+        const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
+        uploadedMediaUrl = publicURL
+      }
+    }
+
     const cleanedRecipients = editRecipients.filter(r => r.trim()).join(',')
     await supabase.from('sms_logs').update({
       content: editContent,
       scheduled_at: new Date(editTime).toISOString(),
       recipient: cleanedRecipients,
-      template_id: selectedTemplate
+      template_id: selectedTemplate,
+      media_url: uploadedMediaUrl
     }).eq('id', selectedMessage.id)
 
     setScheduledMessages(prev => prev.map(msg =>
       msg.id === selectedMessage.id
-        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: cleanedRecipients, template_id: selectedTemplate }
+        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: cleanedRecipients, template_id: selectedTemplate, media_url: uploadedMediaUrl }
         : msg
     ))
-    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: cleanedRecipients, template_id: selectedTemplate }))
+    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: cleanedRecipients, template_id: selectedTemplate, media_url: uploadedMediaUrl }))
     setEditing(false)
   }
 
@@ -185,6 +204,17 @@ export default function Scheduled() {
                   />
                 </div>
 
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Attachment (optional):</strong></label><br />
+                  {mediaUrl && (
+                    <div style={{ marginBottom: 10 }}>
+                      <img src={mediaUrl} alt="Media Preview" style={{ maxHeight: 120 }} />
+                      <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
+                    </div>
+                  )}
+                  <input type="file" onChange={(e) => setMediaFile(e.target.files[0])} />
+                </div>
+
                 <div style={{ marginBottom: 20 }}>
                   <label><strong>Reschedule:</strong></label><br />
                   <input
@@ -203,6 +233,11 @@ export default function Scheduled() {
                 <p><strong>Recipient(s):</strong> {selectedMessage.recipient}</p>
                 <p><strong>Message:</strong></p>
                 <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
+                {selectedMessage.media_url && (
+                  <div style={{ marginTop: 10 }}>
+                    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxHeight: 150 }} />
+                  </div>
+                )}
                 <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
                 <button onClick={() => cancelMessage(selectedMessage.id)} style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Cancel Broadcast</button>
               </>
