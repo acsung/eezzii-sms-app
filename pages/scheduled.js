@@ -134,7 +134,7 @@ export default function Scheduled() {
                             type="checkbox"
                             checked={editRecipients.includes(c.phone)}
                             onChange={() => toggleRecipient(c.phone)}
-                          /> {c.phone} <small>({c.tag})</small>
+                          /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
                         </label>
                       </div>
                     ))}
