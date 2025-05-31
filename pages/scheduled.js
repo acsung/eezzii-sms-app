@@ -11,6 +11,9 @@ export default function Scheduled() {
   const [selectedMessage, setSelectedMessage] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
+  const [editTime, setEditTime] = useState('')
 
   useEffect(() => {
     const fetchScheduled = async () => {
@@ -38,6 +41,27 @@ export default function Scheduled() {
     setSelectedMessage(null)
   }
 
+  const handleEdit = () => {
+    setEditContent(selectedMessage.content)
+    setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
+    setEditing(true)
+  }
+
+  const saveEdit = async () => {
+    await supabase.from('sms_logs').update({
+      content: editContent,
+      scheduled_at: new Date(editTime).toISOString()
+    }).eq('id', selectedMessage.id)
+
+    setScheduledMessages(prev => prev.map(msg =>
+      msg.id === selectedMessage.id
+        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString() }
+        : msg
+    ))
+    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString() }))
+    setEditing(false)
+  }
+
   return (
     <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
       {/* Sidebar */}
@@ -55,7 +79,7 @@ export default function Scheduled() {
         {scheduledMessages.map((msg) => (
           <div
             key={msg.id}
-            onClick={() => setSelectedMessage(msg)}
+            onClick={() => { setSelectedMessage(msg); setEditing(false); }}
             style={{
               background: selectedMessage?.id === msg.id ? '#d0ebff' : 'white',
               border: '1px solid #ddd',
@@ -88,30 +112,58 @@ export default function Scheduled() {
             <p><strong>Scheduled At:</strong> {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
             <p><strong>Template ID:</strong> {selectedMessage.template_id}</p>
             <p><strong>Status:</strong> {selectedMessage.status}</p>
-            <p><strong>Message:</strong></p>
-            <div style={{
-              whiteSpace: 'pre-wrap',
-              border: '1px solid #ccc',
-              background: '#f9f9f9',
-              padding: 15,
-              borderRadius: 4
-            }}>
-              {selectedMessage.content}
-            </div>
-            <button
-              onClick={() => cancelMessage(selectedMessage.id)}
-              style={{
-                marginTop: 20,
-                background: 'red',
-                color: 'white',
-                padding: '10px 20px',
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer'
-              }}
-            >
-              Cancel Broadcast
-            </button>
+
+            {editing ? (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Edit Content:</strong></label><br />
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={5}
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label><strong>Reschedule:</strong></label><br />
+                  <input
+                    type="datetime-local"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <button
+                  onClick={saveEdit}
+                  style={{ marginRight: 10, padding: '8px 16px' }}
+                >Save Changes</button>
+                <button
+                  onClick={() => setEditing(false)}
+                  style={{ padding: '8px 16px', background: '#eee' }}
+                >Cancel</button>
+              </>
+            ) : (
+              <>
+                <p><strong>Message:</strong></p>
+                <div style={{
+                  whiteSpace: 'pre-wrap',
+                  border: '1px solid #ccc',
+                  background: '#f9f9f9',
+                  padding: 15,
+                  borderRadius: 4
+                }}>
+                  {selectedMessage.content}
+                </div>
+                <button
+                  onClick={handleEdit}
+                  style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}
+                >Edit Broadcast</button>
+                <button
+                  onClick={() => cancelMessage(selectedMessage.id)}
+                  style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                >Cancel Broadcast</button>
+              </>
+            )}
           </>
         ) : (
           <p>Select a scheduled message from the left panel.</p>
