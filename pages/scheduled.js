@@ -18,6 +18,7 @@ export default function Scheduled() {
   const [allContacts, setAllContacts] = useState([])
   const [templateOptions, setTemplateOptions] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
 
   useEffect(() => {
     const fetchScheduled = async () => {
@@ -89,6 +90,10 @@ export default function Scheduled() {
     )
   }
 
+  const filteredContacts = tagFilter
+    ? allContacts.filter(c => c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()))
+    : allContacts
+
   return (
     <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
       <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
@@ -125,9 +130,18 @@ export default function Scheduled() {
             {editing ? (
               <>
                 <div style={{ marginBottom: 10 }}>
+                  <label><strong>Filter by Tag:</strong></label><br />
+                  <input
+                    type="text"
+                    placeholder="e.g. realtor, builder"
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  />
+
                   <label><strong>Select Recipients:</strong></label><br />
                   <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10 }}>
-                    {allContacts.map(c => (
+                    {filteredContacts.map(c => (
                       <div key={c.id}>
                         <label>
                           <input
