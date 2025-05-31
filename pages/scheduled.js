@@ -14,6 +14,7 @@ export default function Scheduled() {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
   const [editTime, setEditTime] = useState('')
+  const [editRecipient, setEditRecipient] = useState('')
 
   useEffect(() => {
     const fetchScheduled = async () => {
@@ -44,21 +45,23 @@ export default function Scheduled() {
   const handleEdit = () => {
     setEditContent(selectedMessage.content)
     setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
+    setEditRecipient(selectedMessage.recipient)
     setEditing(true)
   }
 
   const saveEdit = async () => {
     await supabase.from('sms_logs').update({
       content: editContent,
-      scheduled_at: new Date(editTime).toISOString()
+      scheduled_at: new Date(editTime).toISOString(),
+      recipient: editRecipient
     }).eq('id', selectedMessage.id)
 
     setScheduledMessages(prev => prev.map(msg =>
       msg.id === selectedMessage.id
-        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString() }
+        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipient }
         : msg
     ))
-    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString() }))
+    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipient }))
     setEditing(false)
   }
 
@@ -108,13 +111,20 @@ export default function Scheduled() {
         {selectedMessage ? (
           <>
             <h3>📨 Message Details</h3>
-            <p><strong>Recipient:</strong> {selectedMessage.recipient}</p>
-            <p><strong>Scheduled At:</strong> {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
             <p><strong>Template ID:</strong> {selectedMessage.template_id}</p>
             <p><strong>Status:</strong> {selectedMessage.status}</p>
 
             {editing ? (
               <>
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Edit Recipient:</strong></label><br />
+                  <input
+                    type="text"
+                    value={editRecipient}
+                    onChange={(e) => setEditRecipient(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                </div>
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Edit Content:</strong></label><br />
                   <textarea
@@ -144,6 +154,8 @@ export default function Scheduled() {
               </>
             ) : (
               <>
+                <p><strong>Recipient:</strong> {selectedMessage.recipient}</p>
+                <p><strong>Scheduled At:</strong> {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
                 <p><strong>Message:</strong></p>
                 <div style={{
                   whiteSpace: 'pre-wrap',
