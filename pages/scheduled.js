@@ -14,7 +14,8 @@ export default function Scheduled() {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
   const [editTime, setEditTime] = useState('')
-  const [editRecipients, setEditRecipients] = useState('')
+  const [editRecipients, setEditRecipients] = useState([])
+  const [allContacts, setAllContacts] = useState([])
   const [templateOptions, setTemplateOptions] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState('')
 
@@ -39,8 +40,14 @@ export default function Scheduled() {
       setTemplateOptions(data || [])
     }
 
+    const fetchContacts = async () => {
+      const { data } = await supabase.from('contacts').select('*')
+      setAllContacts(data || [])
+    }
+
     fetchScheduled()
     fetchTemplates()
+    fetchContacts()
   }, [])
 
   const cancelMessage = async (id) => {
@@ -53,38 +60,38 @@ export default function Scheduled() {
   const handleEdit = () => {
     setEditContent(selectedMessage.content)
     setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
-    setEditRecipients(selectedMessage.recipient)
+    setEditRecipients(selectedMessage.recipient.split(','))
     setSelectedTemplate(selectedMessage.template_id || '')
     setEditing(true)
   }
 
   const saveEdit = async () => {
+    const cleanedRecipients = editRecipients.filter(r => r.trim()).join(',')
     await supabase.from('sms_logs').update({
       content: editContent,
       scheduled_at: new Date(editTime).toISOString(),
-      recipient: editRecipients,
+      recipient: cleanedRecipients,
       template_id: selectedTemplate
     }).eq('id', selectedMessage.id)
 
     setScheduledMessages(prev => prev.map(msg =>
       msg.id === selectedMessage.id
-        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipients, template_id: selectedTemplate }
+        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: cleanedRecipients, template_id: selectedTemplate }
         : msg
     ))
-    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipients, template_id: selectedTemplate }))
+    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: cleanedRecipients, template_id: selectedTemplate }))
     setEditing(false)
+  }
+
+  const toggleRecipient = (phone) => {
+    setEditRecipients(prev =>
+      prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
+    )
   }
 
   return (
     <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
-      {/* Sidebar */}
-      <div style={{
-        width: 280,
-        background: '#f4f4f4',
-        borderRight: '1px solid #ccc',
-        padding: 20,
-        overflowY: 'auto'
-      }}>
+      <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
         <h3>🕒 Scheduled</h3>
         {loading && <p>Loading...</p>}
         {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -103,20 +110,12 @@ export default function Scheduled() {
             }}
           >
             <div style={{ fontWeight: 'bold' }}>{msg.recipient}</div>
-            <div style={{ fontSize: '0.85em', color: '#555' }}>
-              {new Date(msg.scheduled_at).toLocaleString()}
-            </div>
-            <div style={{
-              fontSize: '0.85em',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}>{msg.content}</div>
+            <div style={{ fontSize: '0.85em', color: '#555' }}>{new Date(msg.scheduled_at).toLocaleString()}</div>
+            <div style={{ fontSize: '0.85em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.content}</div>
           </div>
         ))}
       </div>
 
-      {/* Message Details */}
       <div style={{ flex: 1, padding: 30 }}>
         {selectedMessage ? (
           <>
@@ -126,13 +125,20 @@ export default function Scheduled() {
             {editing ? (
               <>
                 <div style={{ marginBottom: 10 }}>
-                  <label><strong>Edit Recipients (comma-separated):</strong></label><br />
-                  <input
-                    type="text"
-                    value={editRecipients}
-                    onChange={(e) => setEditRecipients(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
+                  <label><strong>Select Recipients:</strong></label><br />
+                  <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10 }}>
+                    {allContacts.map(c => (
+                      <div key={c.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={editRecipients.includes(c.phone)}
+                            onChange={() => toggleRecipient(c.phone)}
+                          /> {c.phone} <small>({c.tag})</small>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Select Template (optional):</strong></label><br />
@@ -165,37 +171,17 @@ export default function Scheduled() {
                     style={{ width: '100%' }}
                   />
                 </div>
-                <button
-                  onClick={saveEdit}
-                  style={{ marginRight: 10, padding: '8px 16px' }}
-                >Save Changes</button>
-                <button
-                  onClick={() => setEditing(false)}
-                  style={{ padding: '8px 16px', background: '#eee' }}
-                >Cancel</button>
+                <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
+                <button onClick={() => setEditing(false)} style={{ padding: '8px 16px', background: '#eee' }}>Cancel</button>
               </>
             ) : (
               <>
                 <p><strong>Recipient(s):</strong> {selectedMessage.recipient}</p>
                 <p><strong>Scheduled At:</strong> {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
                 <p><strong>Message:</strong></p>
-                <div style={{
-                  whiteSpace: 'pre-wrap',
-                  border: '1px solid #ccc',
-                  background: '#f9f9f9',
-                  padding: 15,
-                  borderRadius: 4
-                }}>
-                  {selectedMessage.content}
-                </div>
-                <button
-                  onClick={handleEdit}
-                  style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}
-                >Edit Broadcast</button>
-                <button
-                  onClick={() => cancelMessage(selectedMessage.id)}
-                  style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                >Cancel Broadcast</button>
+                <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
+                <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
+                <button onClick={() => cancelMessage(selectedMessage.id)} style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Cancel Broadcast</button>
               </>
             )}
           </>
