@@ -14,7 +14,9 @@ export default function Scheduled() {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
   const [editTime, setEditTime] = useState('')
-  const [editRecipient, setEditRecipient] = useState('')
+  const [editRecipients, setEditRecipients] = useState('')
+  const [templateOptions, setTemplateOptions] = useState([])
+  const [selectedTemplate, setSelectedTemplate] = useState('')
 
   useEffect(() => {
     const fetchScheduled = async () => {
@@ -32,7 +34,13 @@ export default function Scheduled() {
       setLoading(false)
     }
 
+    const fetchTemplates = async () => {
+      const { data } = await supabase.from('message_templates').select('*')
+      setTemplateOptions(data || [])
+    }
+
     fetchScheduled()
+    fetchTemplates()
   }, [])
 
   const cancelMessage = async (id) => {
@@ -45,7 +53,8 @@ export default function Scheduled() {
   const handleEdit = () => {
     setEditContent(selectedMessage.content)
     setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
-    setEditRecipient(selectedMessage.recipient)
+    setEditRecipients(selectedMessage.recipient)
+    setSelectedTemplate(selectedMessage.template_id || '')
     setEditing(true)
   }
 
@@ -53,15 +62,16 @@ export default function Scheduled() {
     await supabase.from('sms_logs').update({
       content: editContent,
       scheduled_at: new Date(editTime).toISOString(),
-      recipient: editRecipient
+      recipient: editRecipients,
+      template_id: selectedTemplate
     }).eq('id', selectedMessage.id)
 
     setScheduledMessages(prev => prev.map(msg =>
       msg.id === selectedMessage.id
-        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipient }
+        ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipients, template_id: selectedTemplate }
         : msg
     ))
-    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipient }))
+    setSelectedMessage(prev => ({ ...prev, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: editRecipients, template_id: selectedTemplate }))
     setEditing(false)
   }
 
@@ -111,19 +121,31 @@ export default function Scheduled() {
         {selectedMessage ? (
           <>
             <h3>📨 Message Details</h3>
-            <p><strong>Template ID:</strong> {selectedMessage.template_id}</p>
             <p><strong>Status:</strong> {selectedMessage.status}</p>
 
             {editing ? (
               <>
                 <div style={{ marginBottom: 10 }}>
-                  <label><strong>Edit Recipient:</strong></label><br />
+                  <label><strong>Edit Recipients (comma-separated):</strong></label><br />
                   <input
                     type="text"
-                    value={editRecipient}
-                    onChange={(e) => setEditRecipient(e.target.value)}
+                    value={editRecipients}
+                    onChange={(e) => setEditRecipients(e.target.value)}
                     style={{ width: '100%' }}
                   />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Select Template (optional):</strong></label><br />
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="">-- No Template --</option>
+                    {templateOptions.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Edit Content:</strong></label><br />
@@ -154,7 +176,7 @@ export default function Scheduled() {
               </>
             ) : (
               <>
-                <p><strong>Recipient:</strong> {selectedMessage.recipient}</p>
+                <p><strong>Recipient(s):</strong> {selectedMessage.recipient}</p>
                 <p><strong>Scheduled At:</strong> {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
                 <p><strong>Message:</strong></p>
                 <div style={{
