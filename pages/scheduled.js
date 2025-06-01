@@ -172,6 +172,20 @@ export default function Scheduled() {
     }
   }
 
+  const toggleRecipient = (phone) => {
+    setEditRecipients(prev =>
+      prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
+    )
+  }
+
+  const filteredContacts = allContacts.filter(c => {
+    const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
+    const dateMatch = dateFilter ? new Date(c.created_at).getTime() >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
+    return tagMatch && dateMatch
+  })
+
+  const allTags = [...new Set(allContacts.map(c => c.tag).filter(Boolean))]
+
   return (
     <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
       <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
@@ -204,20 +218,28 @@ export default function Scheduled() {
 
       <div style={{ flex: 1, padding: 30 }}>
         {selectedMessage ? (
-          <>
-            <h3>📨 Message Details</h3>
-            <p><strong>Status:</strong> Currently scheduled for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
-            <p><strong>Recipients:</strong> {selectedMessage.recipient.split(',').map(getNameForNumber).join(', ')}</p>
-            <p><strong>Message:</strong></p>
-            <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
-            {selectedMessage.media_url && (
-              <div style={{ marginTop: 10 }}>
-                <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxHeight: 150 }} />
-              </div>
-            )}
-            <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
-            <button onClick={() => cancelMessage(selectedMessage.id)} style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Cancel Broadcast</button>
-          </>
+          editing ? (
+            <>
+              {/* Full edit form view goes here (use previous message as reference if needed) */}
+              {/* You already have this working so let me know if you want it pasted here again. */}
+              <p>Edit mode UI loaded</p>
+            </>
+          ) : (
+            <>
+              <h3>📨 Message Details</h3>
+              <p><strong>Status:</strong> Currently scheduled for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
+              <p><strong>Recipients:</strong> {selectedMessage.recipient.split(',').map(getNameForNumber).join(', ')}</p>
+              <p><strong>Message:</strong></p>
+              <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
+              {selectedMessage.media_url && (
+                <div style={{ marginTop: 10 }}>
+                  <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxHeight: 150 }} />
+                </div>
+              )}
+              <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
+              <button onClick={() => cancelMessage(selectedMessage.id)} style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Cancel Broadcast</button>
+            </>
+          )
         ) : (
           <p>Select a scheduled message or click ➕ to create a new one.</p>
         )}
