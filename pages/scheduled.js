@@ -143,11 +143,24 @@ export default function Scheduled() {
 
   const filteredContacts = allContacts.filter(c => {
     const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
-    const dateMatch = dateFilter ? new Date(c.created_at).setHours(0,0,0,0) >= new Date(dateFilter).setHours(0,0,0,0) : true
+    const dateMatch = dateFilter ? new Date(c.created_at).setHours(0, 0, 0, 0) >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
     return tagMatch && dateMatch
   })
 
   const allTags = [...new Set(allContacts.map(c => c.tag).filter(Boolean))]
+
+  useEffect(() => {
+    if (editing && selectedMessage) {
+      const visibleFiltered = allContacts.filter(c => {
+        const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
+        const dateMatch = dateFilter ? new Date(c.created_at).setHours(0, 0, 0, 0) >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
+        return tagMatch && dateMatch
+      })
+      if (!visibleFiltered.some(c => editRecipients.includes(c.phone))) {
+        setEditRecipients([])
+      }
+    }
+  }, [tagFilter, dateFilter, editing])
 
   return (
     <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
