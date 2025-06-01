@@ -60,7 +60,7 @@ export default function Scheduled() {
   }, [])
 
   useEffect(() => {
-    if (selectedTemplate && !selectedMessage?.id) {
+    if (selectedTemplate && (!selectedMessage || !selectedMessage.id)) {
       const template = templateOptions.find(t => t.id === selectedTemplate)
       if (template) {
         setEditContent(template.content || '')
@@ -105,8 +105,11 @@ export default function Scheduled() {
 
   const saveEdit = async () => {
     try {
-      let uploadedMediaUrl = mediaUrl
+      const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
+      const isoTime = new Date(editTime).toISOString()
+      if (!cleanedRecipients || !isoTime || !editContent.trim()) throw new Error('Missing required fields')
 
+      let uploadedMediaUrl = mediaUrl
       if (mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
@@ -119,37 +122,20 @@ export default function Scheduled() {
         uploadedMediaUrl = publicURL
       }
 
-      const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
-      const isoTime = new Date(editTime).toISOString()
-
-      if (!isoTime || !cleanedRecipients) throw new Error('Invalid time or recipients')
+      const fields = {
+        content: editContent,
+        scheduled_at: isoTime,
+        recipient: cleanedRecipients,
+        template_id: selectedTemplate,
+        media_url: uploadedMediaUrl
+      }
 
       if (selectedMessage.id) {
-        await supabase.from('sms_logs').update({
-          content: editContent,
-          scheduled_at: isoTime,
-          recipient: cleanedRecipients,
-          template_id: selectedTemplate,
-          media_url: uploadedMediaUrl
-        }).eq('id', selectedMessage.id)
-
-        setScheduledMessages(prev => prev.map(msg =>
-          msg.id === selectedMessage.id
-            ? { ...msg, content: editContent, scheduled_at: isoTime, recipient: cleanedRecipients, template_id: selectedTemplate, media_url: uploadedMediaUrl }
-            : msg
-        ))
+        await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id)
+        setScheduledMessages(prev => prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg))
       } else {
-        const { data: inserted, error } = await supabase.from('sms_logs').insert({
-          content: editContent,
-          scheduled_at: isoTime,
-          recipient: cleanedRecipients,
-          status: 'scheduled',
-          template_id: selectedTemplate,
-          media_url: uploadedMediaUrl
-        }).select().single()
-
+        const { data: inserted, error } = await supabase.from('sms_logs').insert({ ...fields, status: 'scheduled' }).select().single()
         if (error) throw new Error('Failed to insert broadcast.')
-
         setScheduledMessages(prev => [...prev, inserted])
         setSelectedMessage(inserted)
       }
