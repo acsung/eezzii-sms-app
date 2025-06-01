@@ -211,7 +211,7 @@ export default function Scheduled() {
                   <button onClick={() => setEditRecipients([])}>Deselect All</button>
 
                   <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10, marginTop: 10 }}>
-                    {filteredContacts.length > 0 ? filteredContacts.map(c => (
+                    {allContacts.length > 0 ? filteredContacts.map(c => (
                       <div key={c.id}>
                         <label>
                           <input
@@ -221,7 +221,7 @@ export default function Scheduled() {
                           /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
                         </label>
                       </div>
-                    )) : <p>No contacts match the current filters.</p>}
+                    )) : <p>No contacts available.</p>}
                   </div>
                 </div>
 
