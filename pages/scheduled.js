@@ -69,7 +69,7 @@ export default function Scheduled() {
   const handleEdit = () => {
     setEditContent(selectedMessage.content)
     setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
-    setEditRecipients(selectedMessage.recipient.split(','))
+    setEditRecipients(selectedMessage.recipient.split(',').map(r => r.trim()))
     setSelectedTemplate(selectedMessage.template_id || '')
     setMediaUrl(selectedMessage.media_url || '')
     setEditing(true)
@@ -102,7 +102,7 @@ export default function Scheduled() {
       }
     }
 
-    const cleanedRecipients = editRecipients.filter(r => r.trim()).join(',')
+    const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
 
     if (selectedMessage.id) {
       await supabase.from('sms_logs').update({
@@ -143,7 +143,7 @@ export default function Scheduled() {
 
   const filteredContacts = allContacts.filter(c => {
     const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
-    const dateMatch = dateFilter ? new Date(c.created_at).setHours(0, 0, 0, 0) >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
+    const dateMatch = dateFilter ? new Date(c.created_at).getTime() >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
     return tagMatch && dateMatch
   })
 
@@ -211,7 +211,7 @@ export default function Scheduled() {
                   <button onClick={() => setEditRecipients([])}>Deselect All</button>
 
                   <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10, marginTop: 10 }}>
-                    {allContacts.length > 0 ? filteredContacts.map(c => (
+                    {filteredContacts.length > 0 ? filteredContacts.map(c => (
                       <div key={c.id}>
                         <label>
                           <input
@@ -221,7 +221,7 @@ export default function Scheduled() {
                           /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
                         </label>
                       </div>
-                    )) : <p>No contacts available.</p>}
+                    )) : <p>No contacts match the current filters.</p>}
                   </div>
                 </div>
 
