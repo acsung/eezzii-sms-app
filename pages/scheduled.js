@@ -31,11 +31,9 @@ export default function Scheduled() {
         .eq('status', 'scheduled')
         .order('scheduled_at', { ascending: true })
 
-      if (error) {
-        setError('Failed to load scheduled messages.')
-      } else {
-        setScheduledMessages(data || [])
-      }
+      if (error) setError('Failed to load scheduled messages.')
+      else setScheduledMessages(data || [])
+
       setLoading(false)
     }
 
@@ -84,9 +82,9 @@ export default function Scheduled() {
   }
 
   const handleEdit = () => {
-    setEditContent(selectedMessage.content)
+    setEditContent(selectedMessage.content || '')
     setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
-    setEditRecipients(selectedMessage.recipient.split(',').map(r => r.trim()))
+    setEditRecipients(selectedMessage.recipient?.split(',').map(r => r.trim()) || [])
     setSelectedTemplate(selectedMessage.template_id || '')
     setMediaUrl(selectedMessage.media_url || '')
     setMediaFile(null)
@@ -94,9 +92,10 @@ export default function Scheduled() {
   }
 
   const handleNewBroadcast = () => {
-    setSelectedMessage({ id: null, content: '', scheduled_at: new Date().toISOString(), recipient: '', template_id: '', media_url: '' })
+    const now = new Date().toISOString()
+    setSelectedMessage({ id: null, content: '', scheduled_at: now, recipient: '', template_id: '', media_url: '' })
     setEditContent('')
-    setEditTime(new Date().toISOString().slice(0, 16))
+    setEditTime(now.slice(0, 16))
     setEditRecipients([])
     setSelectedTemplate('')
     setMediaUrl('')
@@ -105,52 +104,61 @@ export default function Scheduled() {
   }
 
   const saveEdit = async () => {
-    let uploadedMediaUrl = mediaUrl
+    try {
+      let uploadedMediaUrl = mediaUrl
 
-    if (mediaFile) {
-      const fileExt = mediaFile.name.split('.').pop()
-      const fileName = `${Date.now()}.${fileExt}`
-      const { data } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
-        cacheControl: '3600',
-        upsert: true
-      })
-      if (data) {
+      if (mediaFile) {
+        const fileExt = mediaFile.name.split('.').pop()
+        const fileName = `${Date.now()}.${fileExt}`
+        const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
+          cacheControl: '3600',
+          upsert: true
+        })
+        if (error) throw new Error('Media upload failed.')
         const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
         uploadedMediaUrl = publicURL
       }
+
+      const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
+      const isoTime = new Date(editTime).toISOString()
+
+      if (!isoTime || !cleanedRecipients) throw new Error('Invalid time or recipients')
+
+      if (selectedMessage.id) {
+        await supabase.from('sms_logs').update({
+          content: editContent,
+          scheduled_at: isoTime,
+          recipient: cleanedRecipients,
+          template_id: selectedTemplate,
+          media_url: uploadedMediaUrl
+        }).eq('id', selectedMessage.id)
+
+        setScheduledMessages(prev => prev.map(msg =>
+          msg.id === selectedMessage.id
+            ? { ...msg, content: editContent, scheduled_at: isoTime, recipient: cleanedRecipients, template_id: selectedTemplate, media_url: uploadedMediaUrl }
+            : msg
+        ))
+      } else {
+        const { data: inserted, error } = await supabase.from('sms_logs').insert({
+          content: editContent,
+          scheduled_at: isoTime,
+          recipient: cleanedRecipients,
+          status: 'scheduled',
+          template_id: selectedTemplate,
+          media_url: uploadedMediaUrl
+        }).select().single()
+
+        if (error) throw new Error('Failed to insert broadcast.')
+
+        setScheduledMessages(prev => [...prev, inserted])
+        setSelectedMessage(inserted)
+      }
+
+      setEditing(false)
+    } catch (err) {
+      console.error(err)
+      alert('Failed to save message. Check required fields and try again.')
     }
-
-    const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
-
-    if (selectedMessage.id) {
-      await supabase.from('sms_logs').update({
-        content: editContent,
-        scheduled_at: new Date(editTime).toISOString(),
-        recipient: cleanedRecipients,
-        template_id: selectedTemplate,
-        media_url: uploadedMediaUrl
-      }).eq('id', selectedMessage.id)
-
-      setScheduledMessages(prev => prev.map(msg =>
-        msg.id === selectedMessage.id
-          ? { ...msg, content: editContent, scheduled_at: new Date(editTime).toISOString(), recipient: cleanedRecipients, template_id: selectedTemplate, media_url: uploadedMediaUrl }
-          : msg
-      ))
-    } else {
-      const { data: inserted } = await supabase.from('sms_logs').insert({
-        content: editContent,
-        scheduled_at: new Date(editTime).toISOString(),
-        recipient: cleanedRecipients,
-        status: 'scheduled',
-        template_id: selectedTemplate,
-        media_url: uploadedMediaUrl
-      }).select().single()
-
-      setScheduledMessages(prev => [...prev, inserted])
-      setSelectedMessage(inserted)
-    }
-
-    setEditing(false)
   }
 
   const toggleRecipient = (phone) => {
