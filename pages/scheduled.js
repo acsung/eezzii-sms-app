@@ -22,6 +22,7 @@ export default function Scheduled() {
   const [dateFilter, setDateFilter] = useState('')
   const [mediaUrl, setMediaUrl] = useState('')
   const [mediaFile, setMediaFile] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
     const fetchScheduled = async () => {
@@ -33,7 +34,6 @@ export default function Scheduled() {
 
       if (error) setError('Failed to load scheduled messages.')
       else setScheduledMessages(data || [])
-
       setLoading(false)
     }
 
@@ -88,6 +88,7 @@ export default function Scheduled() {
     setSelectedTemplate(selectedMessage.template_id || '')
     setMediaUrl(selectedMessage.media_url || '')
     setMediaFile(null)
+    setFieldErrors({})
     setEditing(true)
   }
 
@@ -100,22 +101,30 @@ export default function Scheduled() {
     setSelectedTemplate('')
     setMediaUrl('')
     setMediaFile(null)
+    setFieldErrors({})
     setEditing(true)
   }
 
   const saveEdit = async () => {
-    try {
-      const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
-      const isoTime = new Date(editTime).toISOString()
-      if (!cleanedRecipients || !isoTime || !editContent.trim()) throw new Error('Missing required fields')
+    const newFieldErrors = {}
+    const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim())
+    if (cleanedRecipients.length === 0) newFieldErrors.recipients = true
+    if (!editTime) newFieldErrors.time = true
+    if (!editContent.trim()) newFieldErrors.content = true
 
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors)
+      alert('Please fill all required fields.')
+      return
+    }
+
+    try {
       let uploadedMediaUrl = mediaUrl
       if (mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
         const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
-          cacheControl: '3600',
-          upsert: true
+          cacheControl: '3600', upsert: true
         })
         if (error) throw new Error('Media upload failed.')
         const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
@@ -124,8 +133,8 @@ export default function Scheduled() {
 
       const fields = {
         content: editContent,
-        scheduled_at: isoTime,
-        recipient: cleanedRecipients,
+        scheduled_at: new Date(editTime).toISOString(),
+        recipient: cleanedRecipients.join(','),
         template_id: selectedTemplate,
         media_url: uploadedMediaUrl
       }
@@ -136,7 +145,7 @@ export default function Scheduled() {
         setScheduledMessages(prev => prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg))
       } else {
         const { data: inserted, error } = await supabase.from('sms_logs').insert({ ...fields, status: 'scheduled' }).select().single()
-        if (error) throw new Error('Failed to insert broadcast.')
+        if (error) throw new Error('Insert failed.')
         setScheduledMessages(prev => [...prev, inserted])
         setSelectedMessage(inserted)
       }
@@ -144,7 +153,7 @@ export default function Scheduled() {
       setEditing(false)
     } catch (err) {
       console.error(err)
-      alert('Failed to save message. Check required fields and try again.')
+      alert('Failed to save message.')
     }
   }
 
@@ -236,6 +245,7 @@ export default function Scheduled() {
                       </div>
                     )) : <p>No contacts match the current filters.</p>}
                   </div>
+                  {fieldErrors.recipients && <p style={{ color: 'red' }}>At least one recipient is required.</p>}
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -258,8 +268,9 @@ export default function Scheduled() {
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                     rows={5}
-                    style={{ width: '100%', fontFamily: 'monospace' }}
+                    style={{ width: '100%', fontFamily: 'monospace', borderColor: fieldErrors.content ? 'red' : undefined }}
                   />
+                  {fieldErrors.content && <p style={{ color: 'red' }}>Message content is required.</p>}
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -279,8 +290,9 @@ export default function Scheduled() {
                     type="datetime-local"
                     value={editTime}
                     onChange={(e) => setEditTime(e.target.value)}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', borderColor: fieldErrors.time ? 'red' : undefined }}
                   />
+                  {fieldErrors.time && <p style={{ color: 'red' }}>A scheduled date/time is required.</p>}
                 </div>
 
                 <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
