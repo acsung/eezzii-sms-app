@@ -172,7 +172,7 @@ export default function Scheduled() {
               cursor: 'pointer'
             }}
           >
-            <div style={{ fontWeight: 'bold' }}>{msg.recipient}</div>
+            <div style={{ fontWeight: 'bold' }}>{getNameForNumber(msg.recipient)}</div>
             <div style={{ fontSize: '0.85em', color: '#555' }}>{new Date(msg.scheduled_at).toLocaleString()}</div>
             <div style={{ fontSize: '0.85em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.content}</div>
           </div>
@@ -181,3 +181,7 @@ export default function Scheduled() {
 
       <div style={{ flex: 1, padding: 30 }}>
         {/* existing message detail logic remains unchanged */}
+      </div>
+    </div>
+  )
+}
