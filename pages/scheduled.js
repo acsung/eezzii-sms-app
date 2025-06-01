@@ -154,8 +154,65 @@ export default function Scheduled() {
             <p><strong>Status:</strong> Currently scheduled for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
 
             {editing ? (
-              // [Editing UI remains unchanged]
-              <></>
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Edit Recipients:</strong></label><br />
+                  <textarea
+                    value={editRecipients.join(',')}
+                    onChange={(e) => setEditRecipients(e.target.value.split(','))}
+                    rows={3}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Select Template (optional):</strong></label><br />
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="">-- No Template --</option>
+                    {templateOptions.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Edit Content:</strong></label><br />
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={5}
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Attachment (optional):</strong></label><br />
+                  {mediaUrl && (
+                    <div style={{ marginBottom: 10 }}>
+                      <img src={mediaUrl} alt="Media Preview" style={{ maxHeight: 120 }} />
+                      <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
+                    </div>
+                  )}
+                  <input type="file" onChange={(e) => setMediaFile(e.target.files[0])} />
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label><strong>Reschedule:</strong></label><br />
+                  <input
+                    type="datetime-local"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
+                <button onClick={() => setEditing(false)} style={{ padding: '8px 16px', background: '#eee' }}>Cancel</button>
+              </>
             ) : (
               <>
                 <p><strong>Recipient(s):</strong> {
