@@ -33,7 +33,6 @@ export default function Scheduled() {
 
       if (error) setError('Failed to load scheduled messages.')
       else setScheduledMessages(data || [])
-
       setLoading(false)
     }
 
@@ -107,13 +106,12 @@ export default function Scheduled() {
     try {
       const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
       const isoTime = new Date(editTime).toISOString()
-      if (!cleanedRecipients || !isoTime || !editContent.trim()) throw new Error('Missing required fields')
 
       let uploadedMediaUrl = mediaUrl
       if (mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
-        const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
+        const { error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
           cacheControl: '3600',
           upsert: true
         })
@@ -127,7 +125,8 @@ export default function Scheduled() {
         scheduled_at: isoTime,
         recipient: cleanedRecipients,
         template_id: selectedTemplate,
-        media_url: uploadedMediaUrl
+        media_url: uploadedMediaUrl,
+        status: 'scheduled'
       }
 
       if (selectedMessage.id) {
@@ -135,8 +134,8 @@ export default function Scheduled() {
         if (error) throw new Error('Update failed.')
         setScheduledMessages(prev => prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg))
       } else {
-        const { data: inserted, error } = await supabase.from('sms_logs').insert({ ...fields, status: 'scheduled' }).select().single()
-        if (error) throw new Error('Failed to insert broadcast.')
+        const { data: inserted, error } = await supabase.from('sms_logs').insert(fields).select().single()
+        if (error) throw new Error('Insert failed.')
         setScheduledMessages(prev => [...prev, inserted])
         setSelectedMessage(inserted)
       }
@@ -144,7 +143,7 @@ export default function Scheduled() {
       setEditing(false)
     } catch (err) {
       console.error(err)
-      alert('Failed to save message. Check required fields and try again.')
+      alert('Failed to save message.')
     }
   }
 
