@@ -24,34 +24,29 @@ export default function Scheduled() {
   const [mediaFile, setMediaFile] = useState(null)
 
   useEffect(() => {
-    const fetchScheduled = async () => {
-      const { data, error } = await supabase
-        .from('sms_logs')
-        .select('*')
-        .eq('status', 'scheduled')
-        .order('scheduled_at', { ascending: true })
+    const fetchData = async () => {
+      const [smsRes, templatesRes, contactsRes] = await Promise.all([
+        supabase.from('sms_logs').select('*').eq('status', 'scheduled').order('scheduled_at', { ascending: true }),
+        supabase.from('message_templates').select('*'),
+        supabase.from('contacts').select('*')
+      ])
 
-      if (error) {
-        setError('Failed to load scheduled messages.')
-      } else {
-        setScheduledMessages(data || [])
+      if (smsRes.error) setError('Failed to load scheduled messages.')
+      else setScheduledMessages(smsRes.data || [])
+
+      if (templatesRes.data) setTemplateOptions(templatesRes.data)
+
+      if (contactsRes.data) {
+        setAllContacts(contactsRes.data.map(contact => ({
+          ...contact,
+          created_at: contact.created_at || new Date().toISOString()
+        })))
       }
+
       setLoading(false)
     }
 
-    const fetchTemplates = async () => {
-      const { data } = await supabase.from('message_templates').select('*')
-      setTemplateOptions(data || [])
-    }
-
-    const fetchContacts = async () => {
-      const { data } = await supabase.from('contacts').select('*')
-      setAllContacts(data || [])
-    }
-
-    fetchScheduled()
-    fetchTemplates()
-    fetchContacts()
+    fetchData()
   }, [])
 
   const getNameForNumber = (phone) => {
@@ -143,9 +138,7 @@ export default function Scheduled() {
 
   const filteredContacts = allContacts.filter(c => {
     const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
-    const dateMatch = dateFilter
-      ? c.created_at && !isNaN(new Date(c.created_at).getTime()) && new Date(c.created_at).getTime() >= new Date(dateFilter).setHours(0, 0, 0, 0)
-      : true
+    const dateMatch = dateFilter ? new Date(c.created_at).getTime() >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
     return tagMatch && dateMatch
   })
 
@@ -153,7 +146,41 @@ export default function Scheduled() {
 
   return (
     <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
-      {/* ... rest of the component remains unchanged ... */}
+      <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
+        <h3 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          🕒 Scheduled
+          <button onClick={handleNewBroadcast} style={{ fontSize: '1.2em', padding: '2px 8px' }}>＋</button>
+        </h3>
+        {loading && <p>Loading...</p>}
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {!loading && scheduledMessages.length === 0 && <p>No scheduled messages.</p>}
+        {scheduledMessages.map((msg) => (
+          <div
+            key={msg.id}
+            onClick={() => { setSelectedMessage(msg); setEditing(false); }}
+            style={{
+              background: selectedMessage?.id === msg.id ? '#d0ebff' : 'white',
+              border: '1px solid #ddd',
+              borderRadius: 6,
+              padding: 10,
+              marginBottom: 10,
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ fontWeight: 'bold' }}>{getNameForNumber(msg.recipient)}</div>
+            <div style={{ fontSize: '0.85em', color: '#555' }}>{new Date(msg.scheduled_at).toLocaleString()}</div>
+            <div style={{ fontSize: '0.85em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.content}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ flex: 1, padding: 30 }}>
+        {selectedMessage ? (
+          <p><strong>Status:</strong> Currently scheduled for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
+        ) : (
+          <p>Select a scheduled message or click ➕ to create a new one.</p>
+        )}
+      </div>
     </div>
   )
 }
