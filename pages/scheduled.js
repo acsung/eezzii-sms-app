@@ -19,6 +19,7 @@ export default function Scheduled() {
   const [templateOptions, setTemplateOptions] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
   const [mediaUrl, setMediaUrl] = useState('')
   const [mediaFile, setMediaFile] = useState(null)
 
@@ -80,7 +81,7 @@ export default function Scheduled() {
     if (mediaFile) {
       const fileExt = mediaFile.name.split('.').pop()
       const fileName = `${Date.now()}.${fileExt}`
-      const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
+      const { data } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
         cacheControl: '3600',
         upsert: true
       })
@@ -114,9 +115,11 @@ export default function Scheduled() {
     )
   }
 
-  const filteredContacts = tagFilter
-    ? allContacts.filter(c => c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()))
-    : allContacts
+  const filteredContacts = allContacts.filter(c => {
+    const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
+    const dateMatch = dateFilter ? new Date(c.created_at) >= new Date(dateFilter) : true
+    return tagMatch && dateMatch
+  })
 
   const allTags = [...new Set(allContacts.map(c => c.tag).filter(Boolean))]
 
@@ -156,23 +159,35 @@ export default function Scheduled() {
             {editing ? (
               <>
                 <div style={{ marginBottom: 10 }}>
-                  <label><strong>Edit Recipients:</strong></label><br />
-                  <textarea
-                    value={editRecipients.join(',')}
-                    onChange={(e) => setEditRecipients(e.target.value.split(','))}
-                    rows={3}
-                    style={{ width: '100%' }}
-                  />
+                  <label><strong>Filter by Tag:</strong></label><br />
+                  <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} style={{ width: '100%', marginBottom: 10 }}>
+                    <option value=''>-- All Tags --</option>
+                    {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                  </select>
+                  <label><strong>Filter by Created After:</strong></label><br />
+                  <input type='date' value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ width: '100%', marginBottom: 10 }} />
+                  <label><strong>Select Recipients:</strong></label><br />
+                  <button onClick={() => setEditRecipients(filteredContacts.map(c => c.phone))} style={{ marginRight: 10 }}>Select All</button>
+                  <button onClick={() => setEditRecipients([])}>Deselect All</button>
+                  <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10, marginTop: 10 }}>
+                    {filteredContacts.map(c => (
+                      <div key={c.id}>
+                        <label>
+                          <input
+                            type='checkbox'
+                            checked={editRecipients.includes(c.phone)}
+                            onChange={() => toggleRecipient(c.phone)}
+                          /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Select Template (optional):</strong></label><br />
-                  <select
-                    value={selectedTemplate}
-                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                    style={{ width: '100%' }}
-                  >
-                    <option value="">-- No Template --</option>
+                  <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)} style={{ width: '100%' }}>
+                    <option value=''>-- No Template --</option>
                     {templateOptions.map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
@@ -181,33 +196,23 @@ export default function Scheduled() {
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Edit Content:</strong></label><br />
-                  <textarea
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    rows={5}
-                    style={{ width: '100%', fontFamily: 'monospace' }}
-                  />
+                  <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={5} style={{ width: '100%', fontFamily: 'monospace' }} />
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Attachment (optional):</strong></label><br />
                   {mediaUrl && (
                     <div style={{ marginBottom: 10 }}>
-                      <img src={mediaUrl} alt="Media Preview" style={{ maxHeight: 120 }} />
+                      <img src={mediaUrl} alt='Media Preview' style={{ maxHeight: 120 }} />
                       <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
                     </div>
                   )}
-                  <input type="file" onChange={(e) => setMediaFile(e.target.files[0])} />
+                  <input type='file' onChange={(e) => setMediaFile(e.target.files[0])} />
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
                   <label><strong>Reschedule:</strong></label><br />
-                  <input
-                    type="datetime-local"
-                    value={editTime}
-                    onChange={(e) => setEditTime(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
+                  <input type='datetime-local' value={editTime} onChange={(e) => setEditTime(e.target.value)} style={{ width: '100%' }} />
                 </div>
 
                 <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
@@ -225,7 +230,7 @@ export default function Scheduled() {
                 <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
                 {selectedMessage.media_url && (
                   <div style={{ marginTop: 10 }}>
-                    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxHeight: 150 }} />
+                    <img src={selectedMessage.media_url} alt='Attached Media' style={{ maxHeight: 150 }} />
                   </div>
                 )}
                 <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
