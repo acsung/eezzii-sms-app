@@ -143,7 +143,7 @@ export default function Scheduled() {
 
   const filteredContacts = allContacts.filter(c => {
     const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
-    const dateMatch = dateFilter ? new Date(c.created_at) >= new Date(dateFilter) : true
+    const dateMatch = dateFilter ? new Date(c.created_at).setHours(0,0,0,0) >= new Date(dateFilter).setHours(0,0,0,0) : true
     return tagMatch && dateMatch
   })
 
