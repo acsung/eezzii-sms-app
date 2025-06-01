@@ -131,7 +131,8 @@ export default function Scheduled() {
       }
 
       if (selectedMessage.id) {
-        await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id)
+        const { error } = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id)
+        if (error) throw new Error('Update failed.')
         setScheduledMessages(prev => prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg))
       } else {
         const { data: inserted, error } = await supabase.from('sms_logs').insert({ ...fields, status: 'scheduled' }).select().single()
