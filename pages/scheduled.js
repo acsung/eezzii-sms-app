@@ -123,7 +123,7 @@ export default function Scheduled() {
       if (mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
-        const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
+        const { error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
           cacheControl: '3600', upsert: true
         })
         if (error) throw new Error('Media upload failed.')
@@ -135,16 +135,17 @@ export default function Scheduled() {
         content: editContent,
         scheduled_at: new Date(editTime).toISOString(),
         recipient: cleanedRecipients.join(','),
-        template_id: selectedTemplate,
-        media_url: uploadedMediaUrl
+        media_url: uploadedMediaUrl,
+        status: 'scheduled'
       }
+      if (selectedTemplate) fields.template_id = selectedTemplate
 
       if (selectedMessage.id) {
         const { error } = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id)
         if (error) throw new Error('Update failed.')
         setScheduledMessages(prev => prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg))
       } else {
-        const { data: inserted, error } = await supabase.from('sms_logs').insert({ ...fields, status: 'scheduled' }).select().single()
+        const { data: inserted, error } = await supabase.from('sms_logs').insert(fields).select().single()
         if (error) throw new Error('Insert failed.')
         setScheduledMessages(prev => [...prev, inserted])
         setSelectedMessage(inserted)
