@@ -149,19 +149,6 @@ export default function Scheduled() {
 
   const allTags = [...new Set(allContacts.map(c => c.tag).filter(Boolean))]
 
-  useEffect(() => {
-    if (editing && selectedMessage) {
-      const visibleFiltered = allContacts.filter(c => {
-        const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
-        const dateMatch = dateFilter ? new Date(c.created_at).setHours(0, 0, 0, 0) >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
-        return tagMatch && dateMatch
-      })
-      if (!visibleFiltered.some(c => editRecipients.includes(c.phone))) {
-        setEditRecipients([])
-      }
-    }
-  }, [tagFilter, dateFilter, editing])
-
   return (
     <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
       <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
@@ -224,7 +211,7 @@ export default function Scheduled() {
                   <button onClick={() => setEditRecipients([])}>Deselect All</button>
 
                   <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10, marginTop: 10 }}>
-                    {filteredContacts.map(c => (
+                    {filteredContacts.length > 0 ? filteredContacts.map(c => (
                       <div key={c.id}>
                         <label>
                           <input
@@ -234,7 +221,7 @@ export default function Scheduled() {
                           /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
                         </label>
                       </div>
-                    ))}
+                    )) : <p>No contacts match the current filters.</p>}
                   </div>
                 </div>
 
