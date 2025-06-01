@@ -203,7 +203,120 @@ export default function Scheduled() {
       </div>
 
       <div style={{ flex: 1, padding: 30 }}>
-        {/* Details rendering happens here */}
+        {selectedMessage ? (
+          <>
+            <h3>📨 Message Details</h3>
+            <p><strong>Status:</strong> Currently scheduled for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
+
+            {editing ? (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Filter by Tag:</strong></label><br />
+                  <select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  >
+                    <option value="">-- All Tags --</option>
+                    {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                  </select>
+
+                  <label><strong>Filter by Created After:</strong></label><br />
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  />
+
+                  <label><strong>Select Recipients:</strong></label><br />
+                  <button onClick={() => setEditRecipients(filteredContacts.map(c => c.phone))} style={{ marginRight: 10 }}>Select All</button>
+                  <button onClick={() => setEditRecipients([])}>Deselect All</button>
+
+                  <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10, marginTop: 10 }}>
+                    {filteredContacts.length > 0 ? filteredContacts.map(c => (
+                      <div key={c.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={editRecipients.includes(c.phone)}
+                            onChange={() => toggleRecipient(c.phone)}
+                          /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
+                        </label>
+                      </div>
+                    )) : <p>No contacts match the current filters.</p>}
+                  </div>
+                  {fieldErrors.recipients && <p style={{ color: 'red' }}>At least one recipient is required.</p>}
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Select Template (optional):</strong></label><br />
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="">-- No Template --</option>
+                    {templateOptions.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Edit Content:</strong></label><br />
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={5}
+                    style={{ width: '100%', fontFamily: 'monospace', borderColor: fieldErrors.content ? 'red' : undefined }}
+                  />
+                  {fieldErrors.content && <p style={{ color: 'red' }}>Message content is required.</p>}
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Attachment (optional):</strong></label><br />
+                  {mediaUrl && (
+                    <div style={{ marginBottom: 10 }}>
+                      <img src={mediaUrl} alt="Media Preview" style={{ maxHeight: 120 }} />
+                      <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
+                    </div>
+                  )}
+                  <input type="file" onChange={(e) => setMediaFile(e.target.files[0])} />
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label><strong>Reschedule:</strong></label><br />
+                  <input
+                    type="datetime-local"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    style={{ width: '100%', borderColor: fieldErrors.time ? 'red' : undefined }}
+                  />
+                  {fieldErrors.time && <p style={{ color: 'red' }}>A scheduled date/time is required.</p>}
+                </div>
+
+                <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
+                <button onClick={() => setEditing(false)} style={{ padding: '8px 16px', background: '#eee' }}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <p><strong>Recipient(s):</strong> {selectedMessage.recipient.split(',').map(getNameForNumber).join(', ')}</p>
+                <p><strong>Message:</strong></p>
+                <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
+                {selectedMessage.media_url && (
+                  <div style={{ marginTop: 10 }}>
+                    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxHeight: 150 }} />
+                  </div>
+                )}
+                <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
+                <button onClick={() => cancelMessage(selectedMessage.id)} style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Cancel Broadcast</button>
+              </>
+            )}
+          </>
+        ) : (
+          <p>Select a scheduled message or click ➕ to create a new one.</p>
+        )}
       </div>
     </div>
   )
