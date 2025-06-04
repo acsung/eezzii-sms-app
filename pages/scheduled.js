@@ -210,7 +210,7 @@ export default function Scheduled() {
         {selectedMessage ? (
           <>
             <h3>📨 Message Details</h3>
-            <p><strong>Status:</strong> Currently scheduled for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> {selectedMessage.id ? 'Scheduled' : 'New Message'} for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
 
             {editing ? (
               <>
@@ -280,7 +280,7 @@ export default function Scheduled() {
                   <label><strong>Attachment (optional):</strong></label><br />
                   {mediaUrl && (
                     <div style={{ marginBottom: 10 }}>
-                      <img src={mediaUrl} alt="Media Preview" style={{ maxHeight: 120 }} />
+                      <img src={mediaUrl} alt="Media Preview" style={{ maxWidth: 200, maxHeight: 120, display: 'block' }} />
                       <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
                     </div>
                   )}
@@ -307,7 +307,7 @@ export default function Scheduled() {
                 <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
                 {selectedMessage.media_url && (
                   <div style={{ marginTop: 10 }}>
-                    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxHeight: 150 }} />
+                    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxWidth: 300, maxHeight: 150 }} />
                   </div>
                 )}
                 <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
