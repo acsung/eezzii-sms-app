@@ -107,11 +107,6 @@ export default function Scheduled() {
       const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
       const isoTime = new Date(editTime).toISOString()
 
-      if (!cleanedRecipients || !isoTime || !editContent.trim()) {
-        alert('Missing required fields: recipients, time, or content.')
-        return
-      }
-
       let uploadedMediaUrl = mediaUrl
       if (mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()
@@ -141,7 +136,7 @@ export default function Scheduled() {
 
       let response
       if (selectedMessage.id) {
-        response = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id)
+        response = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id).select().single()
       } else {
         response = await supabase.from('sms_logs').insert(fields).select().single()
       }
