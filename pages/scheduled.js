@@ -205,58 +205,6 @@ export default function Scheduled() {
             {editing ? (
               <>
                 <div style={{ marginBottom: 10 }}>
-                  <label><strong>Filter by Tag:</strong></label><br />
-                  <select
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                    style={{ width: '100%', marginBottom: 10 }}
-                  >
-                    <option value="">-- All Tags --</option>
-                    {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
-                  </select>
-
-                  <label><strong>Filter by Created After:</strong></label><br />
-                  <input
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    style={{ width: '100%', marginBottom: 10 }}
-                  />
-
-                  <label><strong>Select Recipients:</strong></label><br />
-                  <button onClick={() => setEditRecipients(filteredContacts.map(c => c.phone))} style={{ marginRight: 10 }}>Select All</button>
-                  <button onClick={() => setEditRecipients([])}>Deselect All</button>
-
-                  <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10, marginTop: 10 }}>
-                    {filteredContacts.length > 0 ? filteredContacts.map(c => (
-                      <div key={c.id}>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={editRecipients.includes(c.phone)}
-                            onChange={() => toggleRecipient(c.phone)}
-                          /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
-                        </label>
-                      </div>
-                    )) : <p>No contacts match the current filters.</p>}
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 10 }}>
-                  <label><strong>Select Template (optional):</strong></label><br />
-                  <select
-                    value={selectedTemplate}
-                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                    style={{ width: '100%' }}
-                  >
-                    <option value="">-- No Template --</option>
-                    {templateOptions.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: 10 }}>
                   <label><strong>Edit Content:</strong></label><br />
                   <textarea
                     value={editContent}
@@ -265,18 +213,21 @@ export default function Scheduled() {
                     style={{ width: '100%', fontFamily: 'monospace' }}
                   />
                 </div>
-
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Attachment (optional):</strong></label><br />
-                  {mediaUrl && (
+                  {mediaFile ? (
                     <div style={{ marginBottom: 10 }}>
-                      <img src={mediaUrl} alt="Media Preview" style={{ maxWidth: 200, maxHeight: 120, display: 'block' }} />
+                      <img src={URL.createObjectURL(mediaFile)} alt="Preview" style={{ maxWidth: 200, maxHeight: 120 }} />
+                      <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
+                    </div>
+                  ) : mediaUrl && (
+                    <div style={{ marginBottom: 10 }}>
+                      <img src={mediaUrl} alt="Current Media" style={{ maxWidth: 200, maxHeight: 120 }} />
                       <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
                     </div>
                   )}
                   <input type="file" accept="image/*" onChange={(e) => setMediaFile(e.target.files[0])} />
                 </div>
-
                 <div style={{ marginBottom: 20 }}>
                   <label><strong>Reschedule:</strong></label><br />
                   <input
@@ -286,13 +237,11 @@ export default function Scheduled() {
                     style={{ width: '100%' }}
                   />
                 </div>
-
                 <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
                 <button onClick={() => setEditing(false)} style={{ padding: '8px 16px', background: '#eee' }}>Cancel</button>
               </>
             ) : (
               <>
-                <p><strong>Recipient(s):</strong> {selectedMessage.recipient.split(',').map(getNameForNumber).join(', ')}</p>
                 <p><strong>Message:</strong></p>
                 <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
                 {selectedMessage.media_url && (
