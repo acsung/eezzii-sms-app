@@ -107,15 +107,25 @@ export default function Scheduled() {
       const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
       const isoTime = new Date(editTime).toISOString()
 
+      if (!cleanedRecipients || !isoTime || !editContent.trim()) {
+        alert('Missing required fields: recipients, time, or content.')
+        return
+      }
+
       let uploadedMediaUrl = mediaUrl
       if (mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
-        const { error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile, {
-          cacheControl: '3600',
-          upsert: true
-        })
-        if (error) throw new Error('Media upload failed.')
+        const { error: uploadError } = await supabase
+          .storage
+          .from('template-uploads')
+          .upload(fileName, mediaFile, { cacheControl: '3600', upsert: true })
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw new Error('Media upload failed.')
+        }
+
         const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
         uploadedMediaUrl = publicURL
       }
@@ -129,21 +139,31 @@ export default function Scheduled() {
         status: 'scheduled'
       }
 
+      let response
       if (selectedMessage.id) {
-        const { error } = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id)
-        if (error) throw new Error('Update failed.')
-        setScheduledMessages(prev => prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg))
+        response = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id)
       } else {
-        const { data: inserted, error } = await supabase.from('sms_logs').insert(fields).select().single()
-        if (error) throw new Error('Insert failed.')
-        setScheduledMessages(prev => [...prev, inserted])
-        setSelectedMessage(inserted)
+        response = await supabase.from('sms_logs').insert(fields).select().single()
+      }
+
+      if (response.error) {
+        console.error('Supabase error:', response.error)
+        throw new Error(response.error.message || 'Save failed.')
+      }
+
+      if (!selectedMessage.id) {
+        setScheduledMessages(prev => [...prev, response.data])
+        setSelectedMessage(response.data)
+      } else {
+        setScheduledMessages(prev =>
+          prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg)
+        )
       }
 
       setEditing(false)
     } catch (err) {
-      console.error(err)
-      alert('Failed to save message.')
+      console.error('Save error:', err)
+      alert(`Failed to save message: ${err.message}`)
     }
   }
 
