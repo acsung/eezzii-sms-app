@@ -111,15 +111,12 @@ export default function Scheduled() {
       if (mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
-        const { error: uploadError } = await supabase
+        const uploadResult = await supabase
           .storage
           .from('template-uploads')
           .upload(fileName, mediaFile, { cacheControl: '3600', upsert: true })
 
-        if (uploadError) {
-          console.error('Upload error:', uploadError)
-          throw new Error('Media upload failed.')
-        }
+        if (uploadResult.error) throw uploadResult.error
 
         const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
         uploadedMediaUrl = publicURL
@@ -141,18 +138,13 @@ export default function Scheduled() {
         response = await supabase.from('sms_logs').insert(fields).select().single()
       }
 
-      if (response.error) {
-        console.error('Supabase error:', response.error)
-        throw new Error(response.error.message || 'Save failed.')
-      }
+      if (response.error) throw response.error
 
       if (!selectedMessage.id) {
         setScheduledMessages(prev => [...prev, response.data])
         setSelectedMessage(response.data)
       } else {
-        setScheduledMessages(prev =>
-          prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg)
-        )
+        setScheduledMessages(prev => prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg))
       }
 
       setEditing(false)
@@ -163,9 +155,7 @@ export default function Scheduled() {
   }
 
   const toggleRecipient = (phone) => {
-    setEditRecipients(prev =>
-      prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
-    )
+    setEditRecipients(prev => prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone])
   }
 
   const filteredContacts = allContacts.filter(c => {
@@ -210,28 +200,19 @@ export default function Scheduled() {
         {selectedMessage ? (
           <>
             <h3>📨 Message Details</h3>
-            <p><strong>Status:</strong> {selectedMessage.id ? 'Scheduled' : 'New Message'} for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> {selectedMessage.status || 'Scheduled'} for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
 
             {editing ? (
               <>
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Filter by Tag:</strong></label><br />
-                  <select
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                    style={{ width: '100%', marginBottom: 10 }}
-                  >
+                  <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} style={{ width: '100%', marginBottom: 10 }}>
                     <option value="">-- All Tags --</option>
                     {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
 
                   <label><strong>Filter by Created After:</strong></label><br />
-                  <input
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    style={{ width: '100%', marginBottom: 10 }}
-                  />
+                  <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ width: '100%', marginBottom: 10 }} />
 
                   <label><strong>Select Recipients:</strong></label><br />
                   <button onClick={() => setEditRecipients(filteredContacts.map(c => c.phone))} style={{ marginRight: 10 }}>Select All</button>
@@ -241,11 +222,8 @@ export default function Scheduled() {
                     {filteredContacts.length > 0 ? filteredContacts.map(c => (
                       <div key={c.id}>
                         <label>
-                          <input
-                            type="checkbox"
-                            checked={editRecipients.includes(c.phone)}
-                            onChange={() => toggleRecipient(c.phone)}
-                          /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
+                          <input type="checkbox" checked={editRecipients.includes(c.phone)} onChange={() => toggleRecipient(c.phone)} />
+                          {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
                         </label>
                       </div>
                     )) : <p>No contacts match the current filters.</p>}
@@ -254,26 +232,15 @@ export default function Scheduled() {
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Select Template (optional):</strong></label><br />
-                  <select
-                    value={selectedTemplate}
-                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                    style={{ width: '100%' }}
-                  >
+                  <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)} style={{ width: '100%' }}>
                     <option value="">-- No Template --</option>
-                    {templateOptions.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
+                    {templateOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Edit Content:</strong></label><br />
-                  <textarea
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    rows={5}
-                    style={{ width: '100%', fontFamily: 'monospace' }}
-                  />
+                  <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={5} style={{ width: '100%', fontFamily: 'monospace' }} />
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -289,12 +256,7 @@ export default function Scheduled() {
 
                 <div style={{ marginBottom: 20 }}>
                   <label><strong>Reschedule:</strong></label><br />
-                  <input
-                    type="datetime-local"
-                    value={editTime}
-                    onChange={(e) => setEditTime(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
+                  <input type="datetime-local" value={editTime} onChange={(e) => setEditTime(e.target.value)} style={{ width: '100%' }} />
                 </div>
 
                 <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
