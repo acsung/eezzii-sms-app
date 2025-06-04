@@ -127,7 +127,7 @@ export default function Scheduled() {
         scheduled_at: isoTime,
         recipient: cleanedRecipients,
         template_id: selectedTemplate,
-        media_url: uploadedMediaUrl,
+        media_url: uploadedMediaUrl || null,
         status: 'scheduled'
       }
 
@@ -153,7 +153,6 @@ export default function Scheduled() {
       alert(`Failed to save message: ${err.message}`)
     }
   }
-
   const toggleRecipient = (phone) => {
     setEditRecipients(prev => prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone])
   }
@@ -206,13 +205,22 @@ export default function Scheduled() {
               <>
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Filter by Tag:</strong></label><br />
-                  <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} style={{ width: '100%', marginBottom: 10 }}>
+                  <select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  >
                     <option value="">-- All Tags --</option>
                     {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
 
                   <label><strong>Filter by Created After:</strong></label><br />
-                  <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ width: '100%', marginBottom: 10 }} />
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  />
 
                   <label><strong>Select Recipients:</strong></label><br />
                   <button onClick={() => setEditRecipients(filteredContacts.map(c => c.phone))} style={{ marginRight: 10 }}>Select All</button>
@@ -222,8 +230,11 @@ export default function Scheduled() {
                     {filteredContacts.length > 0 ? filteredContacts.map(c => (
                       <div key={c.id}>
                         <label>
-                          <input type="checkbox" checked={editRecipients.includes(c.phone)} onChange={() => toggleRecipient(c.phone)} />
-                          {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
+                          <input
+                            type="checkbox"
+                            checked={editRecipients.includes(c.phone)}
+                            onChange={() => toggleRecipient(c.phone)}
+                          /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
                         </label>
                       </div>
                     )) : <p>No contacts match the current filters.</p>}
@@ -232,15 +243,26 @@ export default function Scheduled() {
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Select Template (optional):</strong></label><br />
-                  <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)} style={{ width: '100%' }}>
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
                     <option value="">-- No Template --</option>
-                    {templateOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {templateOptions.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Edit Content:</strong></label><br />
-                  <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={5} style={{ width: '100%', fontFamily: 'monospace' }} />
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={5}
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -251,12 +273,17 @@ export default function Scheduled() {
                       <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
                     </div>
                   )}
-                  <input type="file" onChange={(e) => setMediaFile(e.target.files[0])} />
+                  <input type="file" accept="image/*" onChange={(e) => setMediaFile(e.target.files[0])} />
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
                   <label><strong>Reschedule:</strong></label><br />
-                  <input type="datetime-local" value={editTime} onChange={(e) => setEditTime(e.target.value)} style={{ width: '100%' }} />
+                  <input
+                    type="datetime-local"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
                 </div>
 
                 <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
