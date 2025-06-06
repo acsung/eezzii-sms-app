@@ -107,22 +107,22 @@ export default function Scheduled() {
 
       let uploadedMediaUrl = mediaUrl;
       if (mediaFile) {
-        const fileExt = mediaFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-       const uploadResult = await supabase
-  .storage
-  .from('template-uploads')
-  .upload(fileName, mediaFile, { cacheControl: '3600', upsert: true })
+  const fileExt = mediaFile.name.split('.').pop()
+  const fileName = `${Date.now()}.${fileExt}`
+  const { error: uploadError } = await supabase
+    .storage
+    .from('template-uploads')
+    .upload(fileName, mediaFile, { cacheControl: '3600', upsert: true })
 
-if (!uploadResult || uploadResult.error) {
-  console.error('Upload error:', uploadResult?.error)
-  throw new Error('Media upload failed.')
+  if (uploadError) {
+    console.error('Upload error:', uploadError)
+    throw new Error('Media upload failed.')
+  }
+
+  const { data: urlData } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
+  uploadedMediaUrl = urlData?.publicURL || ''
 }
 
-
-        const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName);
-        uploadedMediaUrl = publicURL;
-      }
 
       const fields = {
         content: editContent,
