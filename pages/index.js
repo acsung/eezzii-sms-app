@@ -1,3 +1,5 @@
+// Scheduled Page - Complete
+
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
@@ -6,226 +8,297 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
-export default function SMSBlaster() {
-  const [templates, setTemplates] = useState([])
+export default function Scheduled() {
+  const [scheduledMessages, setScheduledMessages] = useState([])
+  const [selectedMessage, setSelectedMessage] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
+  const [editTime, setEditTime] = useState('')
+  const [editRecipients, setEditRecipients] = useState([])
+  const [allContacts, setAllContacts] = useState([])
+  const [templateOptions, setTemplateOptions] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState('')
-  const [tags, setTags] = useState([])
-  const [selectedTag, setSelectedTag] = useState('')
-  const [contacts, setContacts] = useState([])
-  const [selectedContacts, setSelectedContacts] = useState([])
-  const [scheduledTime, setScheduledTime] = useState('')
-  const [broadcastHours, setBroadcastHours] = useState(null)
-  const [message, setMessage] = useState('')
-  const [sending, setSending] = useState(false)
+  const [tagFilter, setTagFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [mediaUrl, setMediaUrl] = useState('')
+  const [mediaFile, setMediaFile] = useState(null)
 
   useEffect(() => {
+    const fetchScheduled = async () => {
+      const { data, error } = await supabase
+        .from('sms_logs')
+        .select('*')
+        .eq('status', 'scheduled')
+        .order('scheduled_at', { ascending: true })
+
+      if (error) setError('Failed to load scheduled messages.')
+      else setScheduledMessages(data || [])
+      setLoading(false)
+    }
+
     const fetchTemplates = async () => {
-      const { data } = await supabase.from('message_templates').select('*').order('created_at', { ascending: false })
-      setTemplates(data || [])
+      const { data } = await supabase.from('message_templates').select('*')
+      setTemplateOptions(data || [])
     }
 
-    const fetchTags = async () => {
-      const { data } = await supabase.from('contacts').select('tag').neq('tag', '').not('tag', 'is', null)
-      const uniqueTags = [...new Set(data.map((d) => d.tag))]
-      setTags(uniqueTags)
-    }
-
-    const fetchBroadcastHours = async () => {
-      const { data } = await supabase.from('app_settings').select('*').eq('key', 'broadcast_hours').single()
-      if (data?.value) {
-        setBroadcastHours(JSON.parse(data.value))
-      } else {
-        setBroadcastHours(false)
+    const fetchContacts = async () => {
+      const { data } = await supabase.from('contacts').select('*')
+      if (data) {
+        setAllContacts(
+          data.map(contact => ({
+            ...contact,
+            created_at: contact.created_at || new Date().toISOString()
+          }))
+        )
       }
     }
 
+    fetchScheduled()
     fetchTemplates()
-    fetchTags()
-    fetchBroadcastHours()
+    fetchContacts()
   }, [])
 
   useEffect(() => {
-    const fetchContactsByTag = async () => {
-      if (!selectedTag) return
-      const { data } = await supabase.from('contacts').select('*').eq('tag', selectedTag)
-      setContacts(data || [])
-      setSelectedContacts(data.map(c => c.phone))
+    if (selectedTemplate && (!selectedMessage || !selectedMessage.id)) {
+      const template = templateOptions.find(t => t.id === selectedTemplate)
+      if (template) {
+        setEditContent(template.content || '')
+        setMediaUrl(template.media_url || '')
+      }
     }
-    fetchContactsByTag()
-  }, [selectedTag])
+  }, [selectedTemplate])
 
-  const toggleContact = (phone) => {
-    setSelectedContacts(prev =>
+  const getNameForNumber = (phone) => {
+    const contact = allContacts.find(c => c.phone === phone)
+    return contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || phone : phone
+  }
+
+  const cancelMessage = async (id) => {
+    if (!confirm('Are you sure you want to cancel this scheduled message?')) return
+    await supabase.from('sms_logs').delete().eq('id', id)
+    setScheduledMessages(prev => prev.filter(msg => msg.id !== id))
+    setSelectedMessage(null)
+  }
+
+  const handleEdit = () => {
+    setEditContent(selectedMessage.content || '')
+    setEditTime(new Date(selectedMessage.scheduled_at).toISOString().slice(0, 16))
+    setEditRecipients(selectedMessage.recipient?.split(',').map(r => r.trim()) || [])
+    setSelectedTemplate(selectedMessage.template_id || '')
+    setMediaUrl(selectedMessage.media_url || '')
+    setMediaFile(null)
+    setEditing(true)
+  }
+
+  const handleNewBroadcast = () => {
+    const now = new Date().toISOString()
+    setSelectedMessage({ id: null, content: '', scheduled_at: now, recipient: '', template_id: '', media_url: '' })
+    setEditContent('')
+    setEditTime(now.slice(0, 16))
+    setEditRecipients([])
+    setSelectedTemplate('')
+    setMediaUrl('')
+    setMediaFile(null)
+    setEditing(true)
+  }
+
+  const toggleRecipient = (phone) => {
+    setEditRecipients(prev =>
       prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
     )
   }
 
-  const getBroadcastStatus = () => {
-    if (broadcastHours === null) return null
-    if (!broadcastHours || !broadcastHours.start || !broadcastHours.end || !broadcastHours.days) {
-      return {
-        allowed: false,
-        message: '⚠️ Broadcast hours are not configured. Please update your settings.'
-      }
-    }
+  const filteredContacts = allContacts.filter(c => {
+    const tagMatch = tagFilter ? c.tag && c.tag.toLowerCase().includes(tagFilter.toLowerCase()) : true
+    const dateMatch = dateFilter ? new Date(c.created_at).getTime() >= new Date(dateFilter).setHours(0, 0, 0, 0) : true
+    return tagMatch && dateMatch
+  })
 
-    const now = new Date()
-    const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    const today = dayAbbr[now.getDay()]
-    const allowedDays = broadcastHours.days
-    const [startH, startM] = broadcastHours.start.split(':').map(Number)
-    const [endH, endM] = broadcastHours.end.split(':').map(Number)
-    const nowH = now.getHours()
-    const nowM = now.getMinutes()
+  const allTags = [...new Set(allContacts.map(c => c.tag).filter(Boolean))]
 
-    const withinDay = allowedDays.includes(today)
-    const withinTime =
-      (nowH > startH || (nowH === startH && nowM >= startM)) &&
-      (nowH < endH || (nowH === endH && nowM <= endM))
-
-    return {
-      allowed: withinDay && withinTime,
-      message: withinDay && withinTime
-        ? `✅ SMS blasts allowed right now (${today}, ${broadcastHours.start}–${broadcastHours.end})`
-        : `⚠️ Blasts not allowed right now (${today}). Adjust your schedule or settings.`
-    }
-  }
-
-  const sendMessages = async () => {
-    if (!selectedTemplate || selectedContacts.length === 0) {
-      alert('Select a template and at least one contact.')
+  const saveEdit = async () => {
+    if (!editContent || !editRecipients.length || !editTime) {
+      alert('Please fill in content, recipients, and time.')
       return
     }
 
-    const template = templates.find(t => t.id === selectedTemplate)
-    const scheduled = new Date(scheduledTime)
-
-    const [startHour, endHour] = broadcastHours
-      ? [broadcastHours.start, broadcastHours.end]
-      : ['08:00', '20:00']
-    const allowedDays = broadcastHours?.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-
-    const [startH, startM] = startHour.split(':').map(Number)
-    const [endH, endM] = endHour.split(':').map(Number)
-
-    const scheduledH = scheduled.getHours()
-    const scheduledM = scheduled.getMinutes()
-
-    const withinTime =
-      (scheduledH > startH || (scheduledH === startH && scheduledM >= startM)) &&
-      (scheduledH < endH || (scheduledH === endH && scheduledM <= endM))
-
-    const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    const scheduledDay = dayAbbr[scheduled.getDay()]
-    const withinDay = allowedDays.includes(scheduledDay)
-
-    if (!withinDay) {
-      alert(`Broadcasts are not allowed on ${scheduledDay}. Please choose another day.`)
-      return
+    let uploadedUrl = mediaUrl
+    if (mediaFile) {
+      const fileExt = mediaFile.name.split('.').pop()
+      const fileName = `${Date.now()}.${fileExt}`
+      const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile)
+      if (error) return alert('Upload failed.')
+      const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
+      uploadedUrl = publicURL
     }
 
-    if (!withinTime) {
-      alert(`Scheduled time is outside your broadcast window (${startHour}–${endHour})`)
-      return
+    const payload = {
+      recipient: editRecipients.join(','),
+      content: editContent,
+      scheduled_at: new Date(editTime).toISOString(),
+      media_url: uploadedUrl,
+      template_id: selectedTemplate || null,
+      status: 'scheduled'
     }
 
-    setSending(true)
-
-    for (let phone of selectedContacts) {
-      await fetch('/api/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: phone, message: template.content })
-      })
-
-      await supabase.from('sms_logs').insert({
-        recipient: phone,
-        content: template.content,
-        status: 'scheduled',
-        scheduled_at: scheduled.toISOString(),
-        template_id: template.id
-      })
-
-      await new Promise(res => setTimeout(res, 500))
+    if (selectedMessage.id) {
+      await supabase.from('sms_logs').update(payload).eq('id', selectedMessage.id)
+    } else {
+      await supabase.from('sms_logs').insert([payload])
     }
 
-    setMessage('Messages scheduled successfully.')
-    setSending(false)
-    setSelectedContacts([])
-    setScheduledTime('')
-    setSelectedTag('')
+    location.reload()
   }
 
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: 20 }}>
-      <h2>📨 EEZZZII SMS Blaster</h2>
-
-      {getBroadcastStatus() && (
-        <div style={{
-          background: getBroadcastStatus().allowed ? '#e6ffe6' : '#fff4f4',
-          color: getBroadcastStatus().allowed ? 'green' : 'red',
-          padding: '10px 15px',
-          marginBottom: 15,
-          border: '1px solid',
-          borderColor: getBroadcastStatus().allowed ? '#90ee90' : '#f5a9a9',
-          borderRadius: 6
-        }}>
-          {getBroadcastStatus().message}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 15 }}>
-        <label>Template:</label><br />
-        <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)} style={{ width: '100%' }}>
-          <option value="">-- Select Template --</option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
+    <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
+      <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
+        <h3 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          🕒 Scheduled
+          <button onClick={handleNewBroadcast} style={{ fontSize: '1.2em', padding: '2px 8px' }}>＋</button>
+        </h3>
+        {loading && <p>Loading...</p>}
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {!loading && scheduledMessages.length === 0 && <p>No scheduled messages.</p>}
+        {scheduledMessages.map((msg) => (
+          <div
+            key={msg.id}
+            onClick={() => { setSelectedMessage(msg); setEditing(false); }}
+            style={{
+              background: selectedMessage?.id === msg.id ? '#d0ebff' : 'white',
+              border: '1px solid #ddd',
+              borderRadius: 6,
+              padding: 10,
+              marginBottom: 10,
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ fontWeight: 'bold' }}>{msg.recipient.split(',').map(getNameForNumber).join(', ')}</div>
+            <div style={{ fontSize: '0.85em', color: '#555' }}>{new Date(msg.scheduled_at).toLocaleString()}</div>
+            <div style={{ fontSize: '0.85em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.content}</div>
+          </div>
+        ))}
       </div>
 
-      <div style={{ marginBottom: 15 }}>
-        <label>Tag Group:</label><br />
-        <select value={selectedTag} onChange={(e) => setSelectedTag(e.target.value)} style={{ width: '100%' }}>
-          <option value="">-- Select Tag --</option>
-          {tags.map((tag, idx) => (
-            <option key={idx} value={tag}>{tag}</option>
-          ))}
-        </select>
+      <div style={{ flex: 1, padding: 30, paddingBottom: 80 }}>
+        {selectedMessage ? (
+          <>
+            <h3>📨 Message Details</h3>
+            <p><strong>Status:</strong> {selectedMessage.status || 'Scheduled'} for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
+
+            {editing ? (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Filter by Tag:</strong></label><br />
+                  <select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  >
+                    <option value=''>-- All Tags --</option>
+                    {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                  </select>
+
+                  <label><strong>Filter by Created After:</strong></label><br />
+                  <input
+                    type='date'
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    style={{ width: '100%', marginBottom: 10 }}
+                  />
+
+                  <label><strong>Select Recipients:</strong></label><br />
+                  <button onClick={() => setEditRecipients(filteredContacts.map(c => c.phone))} style={{ marginRight: 10 }}>Select All</button>
+                  <button onClick={() => setEditRecipients([])}>Deselect All</button>
+
+                  <div style={{ maxHeight: 200, overflowY: 'scroll', border: '1px solid #ccc', padding: 10, marginTop: 10 }}>
+                    {filteredContacts.length > 0 ? filteredContacts.map(c => (
+                      <div key={c.id}>
+                        <label>
+                          <input
+                            type='checkbox'
+                            checked={editRecipients.includes(c.phone)}
+                            onChange={() => toggleRecipient(c.phone)}
+                          /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
+                        </label>
+                      </div>
+                    )) : <p>No contacts match the current filters.</p>}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Select Template (optional):</strong></label><br />
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <option value=''>-- No Template --</option>
+                    {templateOptions.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Edit Content:</strong></label><br />
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={5}
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label><strong>Attachment (optional):</strong></label><br />
+                  {mediaFile ? (
+                    <div style={{ marginBottom: 10 }}>
+                      <img src={URL.createObjectURL(mediaFile)} alt='Preview' style={{ maxWidth: 200, maxHeight: 120 }} />
+                      <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
+                    </div>
+                  ) : mediaUrl && (
+                    <div style={{ marginBottom: 10 }}>
+                      <img src={mediaUrl} alt='Current Media' style={{ maxWidth: 200, maxHeight: 120 }} />
+                      <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
+                    </div>
+                  )}
+                  <input type='file' accept='image/*' onChange={(e) => setMediaFile(e.target.files[0])} />
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label><strong>Reschedule:</strong></label><br />
+                  <input
+                    type='datetime-local'
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                <button onClick={saveEdit} style={{ marginRight: 10, padding: '8px 16px' }}>Save Changes</button>
+                <button onClick={() => setEditing(false)} style={{ padding: '8px 16px', background: '#eee' }}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <p><strong>Message:</strong></p>
+                <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
+                {selectedMessage.media_url && (
+                  <div style={{ marginTop: 10 }}>
+                    <img src={selectedMessage.media_url} alt='Attached Media' style={{ maxWidth: 300, maxHeight: 150 }} />
+                  </div>
+                )}
+                <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
+                <button onClick={() => cancelMessage(selectedMessage.id)} style={{ marginTop: 20, background: 'red', color: 'white', padding: '10px 20px', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Cancel Broadcast</button>
+              </>
+            )}
+          </>
+        ) : (
+          <p>Select a scheduled message or click ➕ to create a new one.</p>
+        )}
       </div>
-
-      {contacts.length > 0 && (
-        <div style={{ marginBottom: 15 }}>
-          <h4>Recipients</h4>
-          {contacts.map((c) => (
-            <div key={c.id}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selectedContacts.includes(c.phone)}
-                  onChange={() => toggleContact(c.phone)}
-                /> {c.phone} <small>({c.tag})</small>
-              </label>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 15 }}>
-        <label>Schedule Send Time:</label><br />
-        <input
-          type="datetime-local"
-          value={scheduledTime}
-          onChange={(e) => setScheduledTime(e.target.value)}
-          style={{ width: '100%' }}
-        />
-      </div>
-
-      <button onClick={sendMessages} disabled={sending}>
-        {sending ? 'Sending...' : 'Send SMS Blast'}
-      </button>
-
-      {message && <p style={{ color: 'green' }}>{message}</p>}
     </div>
   )
 }
