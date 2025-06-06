@@ -133,9 +133,25 @@ export default function Scheduled() {
       };
 
       let response;
-      if (selectedMessage.id) {
-        response = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id).select().single();
-      } else {
+     if (selectedMessage.id) {
+  const { data: updated, error: updateError } = await supabase
+    .from('sms_logs')
+    .update(fields)
+    .eq('id', selectedMessage.id)
+    .select()
+    .single()
+
+  if (updateError) {
+    console.error('Update failed:', updateError)
+    throw new Error(updateError.message || 'Update failed.')
+  }
+
+  setScheduledMessages(prev =>
+    prev.map(msg => msg.id === selectedMessage.id ? updated : msg)
+  )
+  setSelectedMessage(updated)
+}
+ else {
         response = await supabase.from('sms_logs').insert(fields).select().single();
       }
 
