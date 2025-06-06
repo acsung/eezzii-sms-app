@@ -285,6 +285,12 @@ export default function Scheduled() {
               <>
                 <p><strong>Message:</strong></p>
                 <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
+{selectedMessage.media_url && (
+  <div style={{ marginTop: 10 }}>
+    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxWidth: 300, maxHeight: 150 }} />
+  </div>
+)}
+
                 {selectedMessage.media_url && (
                   <div style={{ marginTop: 10 }}>
                     <img src={selectedMessage.media_url} alt='Attached Media' style={{ maxWidth: 300, maxHeight: 150 }} />
