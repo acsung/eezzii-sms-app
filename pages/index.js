@@ -1,5 +1,3 @@
-// Scheduled Page - Complete
-
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
@@ -104,6 +102,66 @@ export default function Scheduled() {
     setEditing(true)
   }
 
+  const saveEdit = async () => {
+    try {
+      const cleanedRecipients = editRecipients.filter(Boolean).map(r => r.trim()).join(',')
+      const isoTime = new Date(editTime).toISOString()
+
+      let uploadedMediaUrl = mediaUrl
+      if (mediaFile) {
+        const fileExt = mediaFile.name.split('.').pop()
+        const fileName = `${Date.now()}.${fileExt}`
+        const { error: uploadError } = await supabase
+          .storage
+          .from('template-uploads')
+          .upload(fileName, mediaFile, { cacheControl: '3600', upsert: true })
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw new Error('Media upload failed.')
+        }
+
+        const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
+        uploadedMediaUrl = publicURL
+      }
+
+      const fields = {
+        content: editContent,
+        scheduled_at: isoTime,
+        recipient: cleanedRecipients,
+        template_id: selectedTemplate,
+        media_url: uploadedMediaUrl,
+        status: 'scheduled'
+      }
+
+      let response
+      if (selectedMessage.id) {
+        response = await supabase.from('sms_logs').update(fields).eq('id', selectedMessage.id).select().single()
+      } else {
+        response = await supabase.from('sms_logs').insert(fields).select().single()
+      }
+
+      if (response.error) {
+        console.error('Supabase error:', response.error)
+        throw new Error(response.error.message || 'Save failed.')
+      }
+
+      if (!selectedMessage.id) {
+        setScheduledMessages(prev => [...prev, response.data])
+        setSelectedMessage(response.data)
+      } else {
+        setScheduledMessages(prev =>
+          prev.map(msg => msg.id === selectedMessage.id ? { ...msg, ...fields } : msg)
+        )
+      }
+
+      setEditing(false)
+    } catch (err) {
+      console.error('Save error:', err)
+      alert(`Failed to save message: ${err.message}`)
+    }
+  }
+
   const toggleRecipient = (phone) => {
     setEditRecipients(prev =>
       prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
@@ -118,42 +176,8 @@ export default function Scheduled() {
 
   const allTags = [...new Set(allContacts.map(c => c.tag).filter(Boolean))]
 
-  const saveEdit = async () => {
-    if (!editContent || !editRecipients.length || !editTime) {
-      alert('Please fill in content, recipients, and time.')
-      return
-    }
-
-    let uploadedUrl = mediaUrl
-    if (mediaFile) {
-      const fileExt = mediaFile.name.split('.').pop()
-      const fileName = `${Date.now()}.${fileExt}`
-      const { data, error } = await supabase.storage.from('template-uploads').upload(fileName, mediaFile)
-      if (error) return alert('Upload failed.')
-      const { publicURL } = supabase.storage.from('template-uploads').getPublicUrl(fileName)
-      uploadedUrl = publicURL
-    }
-
-    const payload = {
-      recipient: editRecipients.join(','),
-      content: editContent,
-      scheduled_at: new Date(editTime).toISOString(),
-      media_url: uploadedUrl,
-      template_id: selectedTemplate || null,
-      status: 'scheduled'
-    }
-
-    if (selectedMessage.id) {
-      await supabase.from('sms_logs').update(payload).eq('id', selectedMessage.id)
-    } else {
-      await supabase.from('sms_logs').insert([payload])
-    }
-
-    location.reload()
-  }
-
   return (
-    <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
+    <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh', paddingBottom: 20 }}>
       <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
         <h3 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           🕒 Scheduled
@@ -182,11 +206,11 @@ export default function Scheduled() {
         ))}
       </div>
 
-      <div style={{ flex: 1, padding: 30, paddingBottom: 80 }}>
+      <div style={{ flex: 1, padding: 30 }}>
         {selectedMessage ? (
           <>
             <h3>📨 Message Details</h3>
-            <p><strong>Status:</strong> {selectedMessage.status || 'Scheduled'} for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> Scheduled for {new Date(selectedMessage.scheduled_at).toLocaleString()}</p>
 
             {editing ? (
               <>
@@ -197,13 +221,13 @@ export default function Scheduled() {
                     onChange={(e) => setTagFilter(e.target.value)}
                     style={{ width: '100%', marginBottom: 10 }}
                   >
-                    <option value=''>-- All Tags --</option>
+                    <option value="">-- All Tags --</option>
                     {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
 
                   <label><strong>Filter by Created After:</strong></label><br />
                   <input
-                    type='date'
+                    type="date"
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
                     style={{ width: '100%', marginBottom: 10 }}
@@ -218,7 +242,7 @@ export default function Scheduled() {
                       <div key={c.id}>
                         <label>
                           <input
-                            type='checkbox'
+                            type="checkbox"
                             checked={editRecipients.includes(c.phone)}
                             onChange={() => toggleRecipient(c.phone)}
                           /> {c.first_name || ''} {c.last_name || ''} ({c.phone}) <small>({c.tag})</small>
@@ -235,7 +259,7 @@ export default function Scheduled() {
                     onChange={(e) => setSelectedTemplate(e.target.value)}
                     style={{ width: '100%' }}
                   >
-                    <option value=''>-- No Template --</option>
+                    <option value="">-- No Template --</option>
                     {templateOptions.map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
@@ -254,24 +278,19 @@ export default function Scheduled() {
 
                 <div style={{ marginBottom: 10 }}>
                   <label><strong>Attachment (optional):</strong></label><br />
-                  {mediaFile ? (
+                  {mediaUrl && (
                     <div style={{ marginBottom: 10 }}>
-                      <img src={URL.createObjectURL(mediaFile)} alt='Preview' style={{ maxWidth: 200, maxHeight: 120 }} />
-                      <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
-                    </div>
-                  ) : mediaUrl && (
-                    <div style={{ marginBottom: 10 }}>
-                      <img src={mediaUrl} alt='Current Media' style={{ maxWidth: 200, maxHeight: 120 }} />
+                      <img src={mediaUrl} alt="Media Preview" style={{ maxWidth: 200, maxHeight: 120, display: 'block' }} />
                       <div><button onClick={() => { setMediaUrl(''); setMediaFile(null); }}>Remove</button></div>
                     </div>
                   )}
-                  <input type='file' accept='image/*' onChange={(e) => setMediaFile(e.target.files[0])} />
+                  <input type="file" onChange={(e) => setMediaFile(e.target.files[0])} />
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
                   <label><strong>Reschedule:</strong></label><br />
                   <input
-                    type='datetime-local'
+                    type="datetime-local"
                     value={editTime}
                     onChange={(e) => setEditTime(e.target.value)}
                     style={{ width: '100%' }}
@@ -283,17 +302,12 @@ export default function Scheduled() {
               </>
             ) : (
               <>
+                <p><strong>Recipient(s):</strong> {selectedMessage.recipient.split(',').map(getNameForNumber).join(', ')}</p>
                 <p><strong>Message:</strong></p>
                 <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #ccc', background: '#f9f9f9', padding: 15, borderRadius: 4 }}>{selectedMessage.content}</div>
-{selectedMessage.media_url && (
-  <div style={{ marginTop: 10 }}>
-    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxWidth: 300, maxHeight: 150 }} />
-  </div>
-)}
-
                 {selectedMessage.media_url && (
                   <div style={{ marginTop: 10 }}>
-                    <img src={selectedMessage.media_url} alt='Attached Media' style={{ maxWidth: 300, maxHeight: 150 }} />
+                    <img src={selectedMessage.media_url} alt="Attached Media" style={{ maxWidth: 300, maxHeight: 150 }} />
                   </div>
                 )}
                 <button onClick={handleEdit} style={{ marginTop: 20, marginRight: 10, padding: '10px 20px' }}>Edit Broadcast</button>
