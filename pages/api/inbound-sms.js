@@ -80,25 +80,24 @@ Message: "${Body}"
   })
 console.log('GPT response:', aiResponse.data.choices[0].message.content)
 
-  let extracted = {}
-
-let extracted = {}
+ let extracted = {}
 
 try {
   const gptRaw = aiResponse.data.choices[0].message.content
   console.log('GPT raw content:', gptRaw)
 
-  // Extract the JSON portion only
   const jsonStart = gptRaw.indexOf('{')
   const jsonEnd = gptRaw.lastIndexOf('}') + 1
   const jsonString = gptRaw.slice(jsonStart, jsonEnd)
 
-  extracted = JSON.parse(jsonString)
-} catch (e) {
-  console.error('Failed to parse GPT response:', e)
-  console.error('Raw GPT content that failed to parse:', aiResponse.data.choices[0].message.content)
-}
+  console.log('Parsed JSON string:', jsonString)
 
+  extracted = JSON.parse(jsonString)
+  console.log('Extracted fields:', extracted)
+} catch (e) {
+  console.error('❌ Failed to parse GPT response:', e)
+  console.error('❌ Raw GPT content that failed to parse:', aiResponse.data.choices[0].message.content)
+}
 
   // Step 4: Upsert contact immediately if we get first name
   if (extracted.first_name) {
