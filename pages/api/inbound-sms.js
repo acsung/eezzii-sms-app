@@ -1,10 +1,8 @@
+// pages/api/inbound-sms.js
+
 import { createClient } from '@supabase/supabase-js'
 import { Configuration, OpenAIApi } from 'openai'
 import twilio from 'twilio'
-
-export const config = {
-  runtime: 'nodejs',
-}
 
 // Supabase
 const supabase = createClient(
@@ -13,11 +11,9 @@ const supabase = createClient(
 )
 
 // OpenAI
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-)
+const openai = new OpenAIApi(new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+}))
 
 // Twilio
 const twilioClient = twilio(
@@ -31,7 +27,7 @@ export default async function handler(req, res) {
   const { From, To, Body } = req.body
   const phone = From.trim()
 
-  // Log inbound message
+  // Step 1: Log inbound message
   await supabase.from('messages').insert([
     {
       direction: 'inbound',
@@ -42,19 +38,20 @@ export default async function handler(req, res) {
     },
   ])
 
-  // Step 1: Check for existing contact
+  // Step 2: Check for existing contact
   const { data: contact } = await supabase
     .from('contacts')
     .select('*')
     .eq('phone', phone)
     .single()
 
+  // Step 3: If contact is warm or cold, skip intro
   if (contact && ['warm', 'cold'].includes(contact.status)) {
     res.setHeader('Content-Type', 'text/xml')
     return res.status(200).send('<Response></Response>')
   }
 
-  // Step 2: Check for active conversation state
+  // Step 4: Lookup or start conversation state
   const { data: convo } = await supabase
     .from('conversation_state')
     .select('*')
@@ -83,7 +80,7 @@ Message: "${Body}"
     temperature: 0,
   })
 
-  // ✅ TEMP: Log GPT output to Supabase (sms_logs table)
+  // TEMP: Log GPT output to Supabase (sms_logs table)
   await supabase.from('sms_logs').insert([
     {
       phone: phone,
@@ -95,16 +92,16 @@ Message: "${Body}"
 
   let extracted = {}
   try {
-    const raw = aiResponse.data.choices[0].message.content
-    const jsonStart = raw.indexOf('{')
-    const jsonEnd = raw.lastIndexOf('}') + 1
-    const jsonString = raw.slice(jsonStart, jsonEnd)
+    const gptRaw = aiResponse.data.choices[0].message.content
+    const jsonStart = gptRaw.indexOf('{')
+    const jsonEnd = gptRaw.lastIndexOf('}') + 1
+    const jsonString = gptRaw.slice(jsonStart, jsonEnd)
     extracted = JSON.parse(jsonString)
   } catch (e) {
-    console.error('❌ Failed to parse GPT response', e)
+    console.error('Failed to parse GPT response:', aiResponse.data.choices[0].message.content)
   }
 
-  // Step 3: Upsert contact if we got first name
+  // Step 5: Upsert contact if we have first_name
   if (extracted.first_name) {
     await supabase.from('contacts').upsert(
       {
@@ -118,7 +115,7 @@ Message: "${Body}"
     )
   }
 
-  // Step 4: Update conversation state
+  // Step 6: Update conversation_state
   const partial = convo?.partial_data || {}
   const updated = { ...partial, ...extracted }
 
@@ -129,10 +126,10 @@ Message: "${Body}"
     last_updated: new Date().toISOString(),
   })
 
-  // Step 5: Determine what to ask next
+  // Step 7: Compose follow-up
   const needs = []
   if (!updated.first_name) needs.push("What's your first name?")
-  else if (!updated.is_agent) needs.push('Are you a real estate professional or agent?')
+  else if (updated.is_agent === undefined) needs.push('Are you a real estate professional or agent?')
   else if (!updated.timeframe) needs.push("When are you looking to move?")
   else if (!updated.own_rent) needs.push("Do you currently rent or own your home?")
   else if (!updated.email) needs.push("What’s the best email to reach you at?")
@@ -143,7 +140,7 @@ Message: "${Body}"
     ? needs[0]
     : "Thanks so much! That’s all I need for now — I’ll be in touch shortly."
 
-  // Step 6: Send the reply
+  // Step 8: Send reply
   await twilioClient.messages.create({
     from: To,
     to: phone,
