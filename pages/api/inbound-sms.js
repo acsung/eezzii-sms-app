@@ -86,7 +86,8 @@ console.log('GPT response:', aiResponse.data.choices[0].message.content)
 
 try {
   const gptRaw = aiResponse.data.choices[0].message.content
-  console.log('GPT raw content:', gptRaw)
+console.log('📦 RAW GPT output:', gptRaw)
+return res.status(200).send('<Response><Message>Raw GPT response logged. Check Vercel logs.</Message></Response>')
 
   const jsonStart = gptRaw.indexOf('{')
   const jsonEnd = gptRaw.lastIndexOf('}') + 1
