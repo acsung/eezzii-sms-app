@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   const { error } = await supabase.from('messages').insert([
     {
       direction: 'inbound',
-      phone_number: From,
+      phone: From,
       content: Body,
       timestamp: new Date().toISOString(),
       status: 'received'
