@@ -79,7 +79,6 @@ Message: "${Body}"
     temperature: 0,
   })
 console.log('GPT response:', aiResponse.data.choices[0].message.content)
-
  let extracted = {}
 
 try {
