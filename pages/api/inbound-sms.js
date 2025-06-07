@@ -73,15 +73,22 @@ Extract any of the following fields from this user's message. Return only JSON:
 Message: "${Body}"
 `
 
-  const aiResponse = await openai.createChatCompletion({
-    // TEMP: Log GPT output to Supabase (sms_logs table)
+ const aiResponse = await openai.createChatCompletion({
+  model: 'gpt-4o',
+  messages: [
+    { role: 'system', content: 'Extract fields only. Return valid JSON only.' },
+    { role: 'user', content: prompt },
+  ],
+  temperature: 0,
+})
+
 await supabase.from('sms_logs').insert([
   {
     phone: phone,
     content: aiResponse.data.choices[0].message.content,
     direction: 'debug',
-    timestamp: new Date().toISOString()
-  }
+    timestamp: new Date().toISOString(),
+  },
 ])
 
     model: 'gpt-4o',
