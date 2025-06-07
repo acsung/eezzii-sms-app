@@ -1,3 +1,6 @@
+export const config = {
+  runtime: 'nodejs',
+}
 import { createClient } from '@supabase/supabase-js'
 import { Configuration, OpenAIApi } from 'openai'
 import twilio from 'twilio'
