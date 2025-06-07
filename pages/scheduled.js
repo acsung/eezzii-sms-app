@@ -110,12 +110,14 @@ export default function Scheduled() {
       )
       setSelectedMessage(updated)
       setEditing(false)
-    } catch (err) {
+       } catch (err) {
       console.error('Save error:', err)
       alert(`Failed to save message: ${err.message}`)
     }
-return (
-  <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
+  } // ✅ Close the saveEdit function here
+
+  return (
+    <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
     <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
       <h3 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         🕒 Scheduled
