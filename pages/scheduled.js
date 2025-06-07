@@ -115,7 +115,6 @@ export default function Scheduled() {
       alert(`Failed to save message: ${err.message}`)
     }
   }
-}
 return (
   <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
     <div style={{ width: 280, background: '#f4f4f4', borderRight: '1px solid #ccc', padding: 20, overflowY: 'auto' }}>
