@@ -74,6 +74,14 @@ Message: "${Body}"
 `
 
  const aiResponse = await openai.createChatCompletion({
+   await supabase.from('sms_logs').insert([
+  {
+    phone: phone,
+    content: aiResponse.data.choices[0].message.content,
+    direction: 'debug',
+    timestamp: new Date().toISOString(),
+  },
+])
   model: 'gpt-4o',
   messages: [
     { role: 'system', content: 'Extract fields only. Return valid JSON only.' },
@@ -82,14 +90,6 @@ Message: "${Body}"
   temperature: 0,
 })
 
-await supabase.from('sms_logs').insert([
-  {
-    phone: phone,
-    content: aiResponse.data.choices[0].message.content,
-    direction: 'debug',
-    timestamp: new Date().toISOString(),
-  },
-])
 
     model: 'gpt-4o',
     messages: [
