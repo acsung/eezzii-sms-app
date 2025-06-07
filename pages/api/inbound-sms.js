@@ -74,6 +74,16 @@ Message: "${Body}"
 `
 
   const aiResponse = await openai.createChatCompletion({
+    // TEMP: Log GPT output to Supabase (sms_logs table)
+await supabase.from('sms_logs').insert([
+  {
+    phone: phone,
+    content: aiResponse.data.choices[0].message.content,
+    direction: 'debug',
+    timestamp: new Date().toISOString()
+  }
+])
+
     model: 'gpt-4o',
     messages: [
       { role: 'system', content: 'Extract fields only. Return valid JSON only.' },
