@@ -115,8 +115,6 @@ export default function Scheduled() {
       alert(`Failed to save message: ${err.message}`)
     }
   }
-
-  return null // For now, update as needed with actual UI rendering logic
 }
 return (
   <div style={{ display: 'flex', fontFamily: 'sans-serif', height: '100vh' }}>
