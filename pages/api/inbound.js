@@ -17,20 +17,16 @@ export default async function handler(req, res) {
   }
 
   const { Body, From } = req.body;
-  const phone = From?.replace(/\D/g, '').replace(/^1/, '');
 
-  // Log every request to debug table
-  await supabase.from("webhook_debug").insert([
-    {
-      raw_payload: JSON.stringify(req.body),
-      received_at: new Date().toISOString()
-    }
-  ]);
+  // Normalize phone number to 10-digit format
+  const phone = From.replace(/\D/g, '').replace(/^1/, '');
 
-  if (!Body || !From) {
-    return res.status(400).json({ error: "Missing From or Body" });
+  // Safety check
+  if (!Body || !phone) {
+    return res.status(400).json({ error: "Missing Body or From" });
   }
 
+  // Step 1: Extract name from message
   let extractedName = "Unknown";
   try {
     const completion = await openai.chat.completions.create({
@@ -50,6 +46,7 @@ export default async function handler(req, res) {
     console.error("OpenAI error:", err.message);
   }
 
+  // Step 2: Check if contact exists
   const { data: existingContact } = await supabase
     .from("contacts")
     .select("*")
@@ -59,6 +56,7 @@ export default async function handler(req, res) {
   let contact_id = null;
 
   if (!existingContact) {
+    // Step 3: Insert new contact
     const { data: newContact } = await supabase
       .from("contacts")
       .insert([
@@ -74,6 +72,7 @@ export default async function handler(req, res) {
 
     contact_id = newContact?.id || null;
   } else {
+    // Step 4: Compare name for duplicates
     const similarity = stringSimilarity.compareTwoStrings(
       existingContact.name?.toLowerCase() || "",
       extractedName.toLowerCase()
@@ -99,6 +98,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // Step 5: Insert the message with clean phone and timestamps
   const { error: messageError } = await supabase.from("messages").insert([
     {
       content: Body,
