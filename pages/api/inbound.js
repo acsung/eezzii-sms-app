@@ -1,52 +1,39 @@
-// pages/api/inbound.js
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
 const supabase = createClient(
-  'https://xawgyywwsykfncoskjjp.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY // set in Vercel dashboard
-)
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed')
+    return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { From, To, Body } = req.body
+  try {
+    const { From, Body } = req.body;
 
-  if (!From || !To || !Body) {
-    return res.status(400).send('Missing required fields')
+    const phoneNumber = From.replace('whatsapp:', '').replace('+', '');
+
+    const { data, error } = await supabase.from('messages').insert([
+      {
+        content: Body,
+        phone_number: phoneNumber,
+        contact_id: phoneNumber, // TEXT, not UUID
+        direction: 'inbound',
+        channel: 'sms',
+        status: 'received',
+      },
+    ]);
+
+    if (error) {
+      console.error('Insert error:', error);
+      return res.status(500).json({ message: 'Insert failed', error });
+    }
+
+    res.status(200).json({ message: 'Message inserted', data });
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    res.status(500).json({ message: 'Unexpected error', error: err.message });
   }
-
-  // Lookup contact by phone number
-  const { data: contact, error: lookupError } = await supabase
-    .from('contacts')
-    .select('id')
-    .eq('phone', From)
-    .single()
-
-  let contactId = null
-  if (contact) {
-    contactId = contact.id
-  }
-
-  // Insert message into 'messages' table
-  const { error: insertError } = await supabase.from('messages').insert([
-    {
-      content: Body,
-      recipient: To,
-      direction: 'inbound',
-      contact_id: contactId,
-      channel: 'sms',
-      status: 'received',
-      created_at: new Date(),
-    },
-  ])
-
-  if (insertError) {
-    console.error('❌ Failed to insert message:', insertError)
-    return res.status(500).send('Failed to log message')
-  }
-
-  res.status(200).send('✅ Message logged successfully')
 }
