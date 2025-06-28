@@ -19,7 +19,10 @@ export default async function handler(req, res) {
 
   const { Body, From } = req.body;
 
-  // Step 1: Extract name from message via OpenAI
+  // Normalize phone number (strip +, dashes, etc.)
+  const phone = From.replace(/\D/g, '').replace(/^1/, '');
+
+  // Step 1: Extract name using OpenAI
   let extractedName = "Unknown";
   try {
     const completion = await openai.chat.completions.create({
@@ -39,22 +42,22 @@ export default async function handler(req, res) {
     console.error("OpenAI error:", err.message);
   }
 
-  // Step 2: Check if contact already exists for this number
+  // Step 2: Check for existing contact
   const { data: existingContact, error: contactError } = await supabase
     .from("contacts")
     .select("*")
-    .eq("phone", From)
+    .eq("phone", phone)
     .single();
 
   let contact_id = null;
 
   if (!existingContact) {
-    // Step 3: Create contact if phone is not in system
-    const { data: newContact } = await supabase
+    // Step 3: Insert new contact if phone not found
+    const { data: newContact, error: insertError } = await supabase
       .from("contacts")
       .insert([
         {
-          phone: From,
+          phone: phone,
           name: extractedName,
           tag: "auto_created",
           created_at: new Date().toISOString(),
@@ -63,20 +66,22 @@ export default async function handler(req, res) {
       .select()
       .single();
 
+    if (insertError) console.error("Contact insert error:", insertError.message);
+
     contact_id = newContact?.id || null;
   } else {
-    // Step 4: Compare names — if different, create new contact
+    // Step 4: Check for possible duplicate by comparing names
     const similarity = stringSimilarity.compareTwoStrings(
       existingContact.name?.toLowerCase() || "",
       extractedName.toLowerCase()
     );
 
     if (similarity < 0.5 && extractedName !== "Unknown") {
-      const { data: altContact } = await supabase
+      const { data: altContact, error: altInsertError } = await supabase
         .from("contacts")
         .insert([
           {
-            phone: From,
+            phone: phone,
             name: extractedName,
             tag: "possible_duplicate",
             created_at: new Date().toISOString(),
@@ -85,25 +90,32 @@ export default async function handler(req, res) {
         .select()
         .single();
 
+      if (altInsertError) console.error("Alt contact insert error:", altInsertError.message);
+
       contact_id = altContact?.id || null;
     } else {
-      // Use existing contact
       contact_id = existingContact.id;
     }
   }
 
-  // Step 5: Insert the message
-  await supabase.from("messages").insert([
+  // Step 5: Insert message
+  const { error: messageError } = await supabase.from("messages").insert([
     {
       content: Body,
-      phone_number: From,
+      phone_number: phone,
       contact_id,
       status: "received",
       direction: "inbound",
       channel: "sms",
       timestamp: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     },
   ]);
+
+  if (messageError) {
+    console.error("Message insert error:", messageError.message);
+    return res.status(500).json({ error: "Failed to log message" });
+  }
 
   res.status(200).json({ success: true });
 }
