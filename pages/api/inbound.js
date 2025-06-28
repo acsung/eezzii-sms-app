@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from '../../lib/supabase';
 import OpenAI from "openai";
 import stringSimilarity from "string-similarity";
 
