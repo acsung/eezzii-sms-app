@@ -18,15 +18,14 @@ export default async function handler(req, res) {
 
   const { Body, From } = req.body;
 
-  // Normalize phone number to 10-digit format
-  const phone = From.replace(/\D/g, '').replace(/^1/, '');
+  // Step 1: Normalize phone to digits only
+  const phone = From.replace(/\D/g, ''); // e.g., "+1 (713) 555-0101" -> "17135550101"
 
-  // Safety check
   if (!Body || !phone) {
     return res.status(400).json({ error: "Missing Body or From" });
   }
 
-  // Step 1: Extract name from message
+  // Step 2: Extract name using OpenAI
   let extractedName = "Unknown";
   try {
     const completion = await openai.chat.completions.create({
@@ -34,8 +33,7 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content:
-            "Extract only the sender's full name from this message. Return just the name — no extra words.",
+          content: "Extract only the sender's full name from this message. Return just the name — no extra words.",
         },
         { role: "user", content: Body },
       ],
@@ -46,7 +44,7 @@ export default async function handler(req, res) {
     console.error("OpenAI error:", err.message);
   }
 
-  // Step 2: Check if contact exists
+  // Step 3: Check if contact exists using normalized phone
   const { data: existingContact } = await supabase
     .from("contacts")
     .select("*")
@@ -56,12 +54,12 @@ export default async function handler(req, res) {
   let contact_id = null;
 
   if (!existingContact) {
-    // Step 3: Insert new contact
+    // Step 4: Insert new contact
     const { data: newContact } = await supabase
       .from("contacts")
       .insert([
         {
-          phone: phone,
+          phone: phone, // already normalized
           name: extractedName,
           tag: "auto_created",
           created_at: new Date().toISOString(),
@@ -72,7 +70,7 @@ export default async function handler(req, res) {
 
     contact_id = newContact?.id || null;
   } else {
-    // Step 4: Compare name for duplicates
+    // Step 5: Check for possible duplicate by comparing names
     const similarity = stringSimilarity.compareTwoStrings(
       existingContact.name?.toLowerCase() || "",
       extractedName.toLowerCase()
@@ -98,7 +96,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // Step 5: Insert the message with clean phone and timestamps
+  // Step 6: Insert message (already normalized phone)
   const { error: messageError } = await supabase.from("messages").insert([
     {
       content: Body,
