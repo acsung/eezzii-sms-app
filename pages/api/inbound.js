@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   const { Body, From } = req.body;
 
   // Step 1: Normalize phone to digits only
-  const phone = From.replace(/\D/g, ''); // e.g., "+1 (713) 555-0101" -> "17135550101"
+  const phone = From.replace(/\D/g, '');
 
   if (!Body || !phone) {
     return res.status(400).json({ error: "Missing Body or From" });
@@ -54,12 +54,12 @@ export default async function handler(req, res) {
   let contact_id = null;
 
   if (!existingContact) {
-    // Step 4: Insert new contact
-    const { data: newContact } = await supabase
+    // Step 4: Insert new contact with logging
+    const { data: newContact, error: contactInsertError } = await supabase
       .from("contacts")
       .insert([
         {
-          phone: phone, // already normalized
+          phone: phone,
           name: extractedName,
           tag: "auto_created",
           created_at: new Date().toISOString(),
@@ -67,6 +67,11 @@ export default async function handler(req, res) {
       ])
       .select()
       .single();
+
+    console.log("🟢 New contact insert result:", newContact);
+    if (contactInsertError) {
+      console.error("❌ Contact insert error:", contactInsertError.message);
+    }
 
     contact_id = newContact?.id || null;
   } else {
@@ -77,7 +82,7 @@ export default async function handler(req, res) {
     );
 
     if (similarity < 0.5 && extractedName !== "Unknown") {
-      const { data: altContact } = await supabase
+      const { data: altContact, error: altInsertError } = await supabase
         .from("contacts")
         .insert([
           {
@@ -90,13 +95,18 @@ export default async function handler(req, res) {
         .select()
         .single();
 
+      console.log("🟡 Possible duplicate inserted:", altContact);
+      if (altInsertError) {
+        console.error("❌ Duplicate insert error:", altInsertError.message);
+      }
+
       contact_id = altContact?.id || null;
     } else {
       contact_id = existingContact.id;
     }
   }
 
-  // Step 6: Insert message (already normalized phone)
+  // Step 6: Insert message
   const { error: messageError } = await supabase.from("messages").insert([
     {
       content: Body,
@@ -111,7 +121,7 @@ export default async function handler(req, res) {
   ]);
 
   if (messageError) {
-    console.error("Message insert error:", messageError.message);
+    console.error("❌ Message insert error:", messageError.message);
     return res.status(500).json({ error: "Failed to log message" });
   }
 
