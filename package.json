@@ -12,6 +12,7 @@
     "openai": "^5.5.0",
     "react": "latest",
     "react-dom": "latest",
+    "string-similarity": "^4.0.4",
     "twilio": "^5.6.1",
     "uuid": "^9.0.0"
   }
