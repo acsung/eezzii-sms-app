@@ -1,4 +1,3 @@
-// pages/contacts.js
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -21,17 +20,25 @@ export default function ContactsPage() {
       .order('created_at', { ascending: false });
 
     if (!error) setContacts(data);
+    else console.error(error);
   }
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">All Contacts</h1>
-      <div className="grid grid-cols-1 gap-2">
-        {contacts.map((c) => (
-          <div key={c.id} className="border p-2 rounded bg-white shadow">
-            <div className="font-medium">{c.name || 'Unknown'}</div>
-            <div className="text-sm text-gray-500">{c.phone}</div>
-            <div className="text-xs italic text-blue-600">{c.tag}</div>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Contacts</h1>
+      <div className="grid grid-cols-1 gap-4">
+        {contacts.map((contact) => (
+          <div
+            key={contact.id}
+            className="border p-4 rounded shadow bg-white hover:bg-gray-50"
+          >
+            <div className="text-lg font-semibold">
+              {contact.name || '(No Name)'}
+            </div>
+            <div className="text-gray-600">{contact.phone}</div>
+            <div className="text-sm italic text-blue-500">
+              {contact.tag || '—'}
+            </div>
           </div>
         ))}
       </div>
