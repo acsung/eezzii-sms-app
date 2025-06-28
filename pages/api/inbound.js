@@ -18,6 +18,16 @@ export default async function handler(req, res) {
     .select('id')
     .eq('phone_number', From)
     .single();
+// Auto-create contact if not found
+if (!contact || contactError) {
+  const { error: insertError } = await supabase
+    .from('contacts')
+    .insert([{ phone_number: From, tag: 'new_inbound' }]);
+
+  if (insertError) {
+    console.error('Failed to auto-insert contact:', insertError);
+  }
+}
 
   let contact_id = null;
   if (contact && contact.id) {
