@@ -1,9 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+);
 
 import OpenAI from "openai";
 import stringSimilarity from "string-similarity";
@@ -52,7 +52,14 @@ export default async function handler(req, res) {
     // Step 3: Create contact if phone is not in system
     const { data: newContact } = await supabase
       .from("contacts")
-      .insert([{ phone: From, name: extractedName, tag: "auto_created" }])
+      .insert([
+        {
+          phone: From,
+          name: extractedName,
+          tag: "auto_created",
+          created_at: new Date().toISOString(),
+        }
+      ])
       .select()
       .single();
 
@@ -65,10 +72,16 @@ export default async function handler(req, res) {
     );
 
     if (similarity < 0.5 && extractedName !== "Unknown") {
-      // Create new contact even though number exists
       const { data: altContact } = await supabase
         .from("contacts")
-        .insert([{ phone: From, name: extractedName, tag: "possible_duplicate" }])
+        .insert([
+          {
+            phone: From,
+            name: extractedName,
+            tag: "possible_duplicate",
+            created_at: new Date().toISOString(),
+          }
+        ])
         .select()
         .single();
 
