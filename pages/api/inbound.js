@@ -1,12 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
+import OpenAI from "openai";
+import stringSimilarity from "string-similarity";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
-
-import OpenAI from "openai";
-import stringSimilarity from "string-similarity";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,11 +17,20 @@ export default async function handler(req, res) {
   }
 
   const { Body, From } = req.body;
+  const phone = From?.replace(/\D/g, '').replace(/^1/, '');
 
-  // Normalize phone number (strip +, dashes, etc.)
-  const phone = From.replace(/\D/g, '').replace(/^1/, '');
+  // Log every request to debug table
+  await supabase.from("webhook_debug").insert([
+    {
+      raw_payload: JSON.stringify(req.body),
+      received_at: new Date().toISOString()
+    }
+  ]);
 
-  // Step 1: Extract name using OpenAI
+  if (!Body || !From) {
+    return res.status(400).json({ error: "Missing From or Body" });
+  }
+
   let extractedName = "Unknown";
   try {
     const completion = await openai.chat.completions.create({
@@ -42,8 +50,7 @@ export default async function handler(req, res) {
     console.error("OpenAI error:", err.message);
   }
 
-  // Step 2: Check for existing contact
-  const { data: existingContact, error: contactError } = await supabase
+  const { data: existingContact } = await supabase
     .from("contacts")
     .select("*")
     .eq("phone", phone)
@@ -52,8 +59,7 @@ export default async function handler(req, res) {
   let contact_id = null;
 
   if (!existingContact) {
-    // Step 3: Insert new contact if phone not found
-    const { data: newContact, error: insertError } = await supabase
+    const { data: newContact } = await supabase
       .from("contacts")
       .insert([
         {
@@ -66,18 +72,15 @@ export default async function handler(req, res) {
       .select()
       .single();
 
-    if (insertError) console.error("Contact insert error:", insertError.message);
-
     contact_id = newContact?.id || null;
   } else {
-    // Step 4: Check for possible duplicate by comparing names
     const similarity = stringSimilarity.compareTwoStrings(
       existingContact.name?.toLowerCase() || "",
       extractedName.toLowerCase()
     );
 
     if (similarity < 0.5 && extractedName !== "Unknown") {
-      const { data: altContact, error: altInsertError } = await supabase
+      const { data: altContact } = await supabase
         .from("contacts")
         .insert([
           {
@@ -90,15 +93,12 @@ export default async function handler(req, res) {
         .select()
         .single();
 
-      if (altInsertError) console.error("Alt contact insert error:", altInsertError.message);
-
       contact_id = altContact?.id || null;
     } else {
       contact_id = existingContact.id;
     }
   }
 
-  // Step 5: Insert message
   const { error: messageError } = await supabase.from("messages").insert([
     {
       content: Body,
