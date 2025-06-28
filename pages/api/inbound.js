@@ -7,33 +7,39 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+    return res.status(405).send('Method Not Allowed');
   }
 
-  try {
-    const { From, Body } = req.body;
+  const { Body, From } = req.body;
 
-    const phoneNumber = From.replace('whatsapp:', '').replace('+', '');
+  // Look up contact
+  const { data: contact, error: contactError } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('phone_number', From)
+    .single();
 
-    const { data, error } = await supabase.from('messages').insert([
-      {
-        content: Body,
-        phone_number: phoneNumber,
-        contact_id: phoneNumber, // TEXT, not UUID
-        direction: 'inbound',
-        channel: 'sms',
-        status: 'received',
-      },
-    ]);
-
-    if (error) {
-      console.error('Insert error:', error);
-      return res.status(500).json({ message: 'Insert failed', error });
-    }
-
-    res.status(200).json({ message: 'Message inserted', data });
-  } catch (err) {
-    console.error('Unexpected error:', err);
-    res.status(500).json({ message: 'Unexpected error', error: err.message });
+  let contact_id = null;
+  if (contact && contact.id) {
+    contact_id = contact.id;
   }
+
+  const { data, error } = await supabase.from('messages').insert([
+    {
+      content: Body,
+      phone_number: From,
+      contact_id,
+      status: 'received',
+      direction: 'inbound',
+      channel: 'sms',
+      timestamp: new Date().toISOString(),
+    },
+  ]);
+
+  if (error) {
+    console.error('Supabase insert error:', error);
+    return res.status(500).send('Error logging message');
+  }
+
+  res.status(200).send('Message logged');
 }
