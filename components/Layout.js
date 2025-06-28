@@ -45,6 +45,13 @@ export default function Layout({ children }) {
             </li>
             <li>
               <button 
+                onClick={() => router.push('/contacts')} 
+                style={{ background: 'none', border: 'none', padding: 10 }}>
+                📇 Contacts
+              </button>
+            </li>
+            <li>
+              <button 
                 onClick={() => router.push('/templates')} 
                 style={{ background: 'none', border: 'none', padding: 10 }}>
                 📋 Templates
