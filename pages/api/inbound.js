@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         {
           phone,
           name: extractedName,
-          tag: 'auto_created',
+          tag_id: 'd3c98a4d-0251-4ab9-a77d-522e20584ee0',
           created_at: nowUTC,
         },
       ])
