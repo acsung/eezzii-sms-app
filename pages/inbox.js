@@ -167,7 +167,6 @@ export default function Inbox() {
   second: '2-digit',
   hour12: true
 })
-
 </div>
                   </div>
                 ))}
