@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   const { Body, From } = req.body;
 
   // Step 1: Normalize phone to digits only
-  const phone = From.replace(/\D/g, '');
+  const phone = From.replace(/\D/g, '').replace(/^1/, '');
 
   if (!Body || !phone) {
     return res.status(400).json({ error: "Missing Body or From" });
@@ -54,28 +54,27 @@ export default async function handler(req, res) {
   let contact_id = null;
 
   if (!existingContact) {
-    // Step 4: Insert new contact with logging
+    // Step 4: Insert new contact
     const { data: newContact, error: contactInsertError } = await supabase
       .from("contacts")
       .insert([
         {
-          phone: phone,
+          phone,
           name: extractedName,
           tag: "auto_created",
           created_at: new Date().toISOString(),
-        }
+        },
       ])
       .select()
       .single();
 
-    console.log("🟢 New contact insert result:", newContact);
     if (contactInsertError) {
       console.error("❌ Contact insert error:", contactInsertError.message);
     }
 
     contact_id = newContact?.id || null;
   } else {
-    // Step 5: Check for possible duplicate by comparing names
+    // Step 5: Check name similarity
     const similarity = stringSimilarity.compareTwoStrings(
       existingContact.name?.toLowerCase() || "",
       extractedName.toLowerCase()
@@ -86,16 +85,15 @@ export default async function handler(req, res) {
         .from("contacts")
         .insert([
           {
-            phone: phone,
+            phone,
             name: extractedName,
             tag: "possible_duplicate",
             created_at: new Date().toISOString(),
-          }
+          },
         ])
         .select()
         .single();
 
-      console.log("🟡 Possible duplicate inserted:", altContact);
       if (altInsertError) {
         console.error("❌ Duplicate insert error:", altInsertError.message);
       }
@@ -109,7 +107,7 @@ export default async function handler(req, res) {
   // Step 6: Insert message
   const { error: messageError } = await supabase.from("messages").insert([
     {
-      content: Body,
+      content_text: Body,
       phone_number: phone,
       contact_id,
       status: "received",
