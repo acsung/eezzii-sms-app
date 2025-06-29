@@ -22,7 +22,15 @@ export default function Inbox() {
 
   useEffect(() => {
     const fetchContacts = async () => {
-      const { data } = await supabase.from('contacts').select('*')
+      const { data } = await supabase
+  .from('contacts')
+  .select(`
+    *,
+    tags:tag_id (
+      name
+    )
+  `)
+
       setContacts(data || [])
     }
     fetchContacts()
