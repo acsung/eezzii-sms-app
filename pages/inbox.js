@@ -157,9 +157,8 @@ export default function Inbox() {
                 {messages.map((m, i) => (
                   <div key={i} style={{ marginBottom: 10 }}>
                     <b>{m.status === 'received' ? selectedContact.name || selectedContact.phone : 'You'}:</b> {m.content || m.content_text}
-                   <div style={{ fontSize: '0.8em', color: '#999' }}>
-  {new Date(m.created_at).toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
+                 <div style={{ fontSize: '0.8em', color: '#999' }}>
+  {new Date(new Date(m.created_at).getTime() - (5 * 60 * 60 * 1000)).toLocaleString('en-US', {
     year: 'numeric',
     month: 'numeric',
     day: 'numeric',
