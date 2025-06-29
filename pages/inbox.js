@@ -34,7 +34,7 @@ export default function Inbox() {
       const { data } = await supabase
         .from('messages')
         .select('*')
-        .eq('recipient', selectedContact.phone)
+        .eq('contact_id', selectedContact.id)
         .order('created_at', { ascending: true })
       setMessages(data || [])
     }
@@ -58,7 +58,7 @@ export default function Inbox() {
     })
     setReply('')
     setMessages((prev) => [...prev, {
-      recipient: selectedContact.phone,
+      contact_id: selectedContact.id,
       content: reply,
       status: 'sent',
       created_at: new Date().toISOString(),
@@ -106,7 +106,7 @@ export default function Inbox() {
                 <button
                   onClick={() => setSelectedContact(c)}
                   style={{ background: selectedContact?.id === c.id ? '#cce5ff' : 'white', border: '1px solid #ccc', width: '100%', textAlign: 'left', padding: 8 }}>
-                  {c.phone} <small>({c.tag})</small>
+                  {c.name || c.phone} <small>({c.tag})</small>
                 </button>
               </li>
             ))}
@@ -121,7 +121,7 @@ export default function Inbox() {
               <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 10, border: '1px solid #eee', padding: 10 }}>
                 {messages.map((m, i) => (
                   <div key={i} style={{ marginBottom: 10 }}>
-                    <b>{m.status === 'received' ? selectedContact.phone : 'You'}:</b> {m.content}
+                    <b>{m.status === 'received' ? selectedContact.name || selectedContact.phone : 'You'}:</b> {m.content || m.content_text}
                     <div style={{ fontSize: '0.8em', color: '#999' }}>{new Date(m.created_at).toLocaleString()}</div>
                   </div>
                 ))}
