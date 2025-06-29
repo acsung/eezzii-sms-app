@@ -1,4 +1,4 @@
-// pages/inbox.js – EEZZZII Inbox View with Sidebar, Contact Threads, and Templates
+// pages/inbox.js – EEZZZII Inbox View with Sidebar, Contact Threads, and Tag Management
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
@@ -19,18 +19,11 @@ export default function Inbox() {
   const [templates, setTemplates] = useState([])
   const [showTemplates, setShowTemplates] = useState(false)
   const [search, setSearch] = useState('')
+  const [newTag, setNewTag] = useState('')
 
   useEffect(() => {
     const fetchContacts = async () => {
-      const { data } = await supabase
-  .from('contacts')
-  .select(`
-    *,
-    tags:tag_id (
-      name
-    )
-  `)
-
+      const { data } = await supabase.from('contacts').select('*')
       setContacts(data || [])
     }
     fetchContacts()
@@ -78,6 +71,18 @@ export default function Inbox() {
     setShowTemplates(false)
   }
 
+  const handleTagUpdate = async () => {
+    if (!selectedContact || !newTag.trim()) return
+    const { error } = await supabase
+      .from('contacts')
+      .update({ tag: newTag.trim() })
+      .eq('id', selectedContact.id)
+    if (!error) {
+      setContacts(contacts.map(c => c.id === selectedContact.id ? { ...c, tag: newTag.trim() } : c))
+      setNewTag('')
+    }
+  }
+
   const filteredTemplates = templates.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     t.content.toLowerCase().includes(search.toLowerCase())
@@ -85,14 +90,12 @@ export default function Inbox() {
 
   return (
     <div style={{ fontFamily: 'sans-serif' }}>
-      {/* Sidebar toggle */}
       <button 
         onClick={() => setMenuOpen(!menuOpen)}
         style={{ position: 'fixed', top: 20, left: 20, zIndex: 10 }}>
         📋 Menu
       </button>
 
-      {/* Sidebar */}
       {menuOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: 250, height: '100%', background: '#f4f4f4', padding: 20, boxShadow: '2px 0 5px rgba(0,0,0,0.2)', zIndex: 9 }}>
           <h3>📁 Navigation</h3>
@@ -105,7 +108,6 @@ export default function Inbox() {
       )}
 
       <div style={{ display: 'flex', marginLeft: menuOpen ? 270 : 20, padding: 20 }}>
-        {/* Contact list */}
         <div style={{ width: 250, marginRight: 20 }}>
           <h3>📇 Contacts</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
@@ -121,11 +123,20 @@ export default function Inbox() {
           </ul>
         </div>
 
-        {/* Message thread */}
         <div style={{ flex: 1 }}>
           <h3>🧾 Messages</h3>
           {selectedContact ? (
             <>
+              <div style={{ marginBottom: 10 }}>
+                <input
+                  type='text'
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder='Edit tag...'
+                  style={{ marginRight: 10 }}
+                />
+                <button onClick={handleTagUpdate}>Update Tag</button>
+              </div>
               <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 10, border: '1px solid #eee', padding: 10 }}>
                 {messages.map((m, i) => (
                   <div key={i} style={{ marginBottom: 10 }}>
@@ -150,7 +161,6 @@ export default function Inbox() {
         </div>
       </div>
 
-      {/* Template modal */}
       {showTemplates && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.4)', zIndex: 20 }}>
           <div style={{ background: 'white', maxWidth: 600, margin: '10% auto', padding: 20, borderRadius: 8 }}>
