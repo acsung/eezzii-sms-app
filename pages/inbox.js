@@ -20,6 +20,7 @@ export default function Inbox() {
   const [showTemplates, setShowTemplates] = useState(false)
   const [search, setSearch] = useState('')
   const [newTag, setNewTag] = useState('')
+  const [availableTags, setAvailableTags] = useState([])
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -49,6 +50,15 @@ export default function Inbox() {
     }
     fetchTemplates()
   }, [])
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      const { data } = await supabase.from('contacts').select('tag')
+      const tags = [...new Set((data || []).map(c => c.tag).filter(Boolean))]
+      setAvailableTags(tags)
+    }
+    fetchTags()
+  }, [contacts])
 
   const sendMessage = async () => {
     if (!reply.trim() || !selectedContact) return
@@ -116,7 +126,7 @@ export default function Inbox() {
                 <button
                   onClick={() => setSelectedContact(c)}
                   style={{ background: selectedContact?.id === c.id ? '#cce5ff' : 'white', border: '1px solid #ccc', width: '100%', textAlign: 'left', padding: 8 }}>
-                  {c.name || c.phone} <small>({c.tag})</small>
+                  {c.name || c.phone} <small>({c.tag || 'No tag'})</small>
                 </button>
               </li>
             ))}
@@ -128,11 +138,17 @@ export default function Inbox() {
           {selectedContact ? (
             <>
               <div style={{ marginBottom: 10 }}>
+                <select value={newTag} onChange={(e) => setNewTag(e.target.value)} style={{ marginRight: 10 }}>
+                  <option value=''>-- Select or type tag --</option>
+                  {availableTags.map((tag, i) => (
+                    <option key={i} value={tag}>{tag}</option>
+                  ))}
+                </select>
                 <input
                   type='text'
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
-                  placeholder='Edit tag...'
+                  placeholder='New tag...'
                   style={{ marginRight: 10 }}
                 />
                 <button onClick={handleTagUpdate}>Update Tag</button>
