@@ -1,127 +1,128 @@
-import { createClient } from '@supabase/supabase-js';
-import OpenAI from "openai";
-import stringSimilarity from "string-similarity";
+import { createClient } from '@supabase/supabase-js'
+import OpenAI from 'openai'
+import stringSimilarity from 'string-similarity'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+)
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
+})
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { Body, From } = req.body;
+  const { Body, From, Timestamp } = req.body
 
-  // Step 1: Normalize phone to digits only
-  const phone = From.replace(/\D/g, '').replace(/^1/, '');
+  const phone = From.replace(/\D/g, '').replace(/^1/, '') // normalize and strip leading 1
 
   if (!Body || !phone) {
-    return res.status(400).json({ error: "Missing Body or From" });
+    return res.status(400).json({ error: 'Missing Body or From' })
   }
 
-  // Step 2: Extract name using OpenAI
-  let extractedName = "Unknown";
+  // Use provided timestamp from Twilio if available; fallback to server time
+  const nowUTC = new Date().toISOString()
+  const messageTimestamp = Timestamp || nowUTC
+
+  // Extract name, avoiding your own name in results
+  let extractedName = 'Unknown'
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
-          content: "Extract only the sender's full name from this message. Return just the name — no extra words.",
+          role: 'system',
+          content: `Extract the sender's full name from this message, avoiding names being spoken *to*. For example, if the message says "Hi Alex", assume the sender is not Alex.`,
         },
-        { role: "user", content: Body },
+        { role: 'user', content: Body },
       ],
-    });
+    })
 
-    extractedName = completion.choices[0]?.message?.content?.trim() || "Unknown";
+    extractedName = completion.choices[0]?.message?.content?.trim() || 'Unknown'
   } catch (err) {
-    console.error("OpenAI error:", err.message);
+    console.error('OpenAI error:', err.message)
   }
 
-  // Step 3: Check if contact exists using normalized phone
+  // Check for existing contact
   const { data: existingContact } = await supabase
-    .from("contacts")
-    .select("*")
-    .eq("phone", phone)
-    .single();
+    .from('contacts')
+    .select('*')
+    .eq('phone', phone)
+    .single()
 
-  let contact_id = null;
+  let contact_id = null
 
   if (!existingContact) {
-    // Step 4: Insert new contact
     const { data: newContact, error: contactInsertError } = await supabase
-      .from("contacts")
+      .from('contacts')
       .insert([
         {
           phone,
           name: extractedName,
-          tag: "auto_created",
-          created_at: new Date().toISOString(),
+          tag: 'auto_created',
+          created_at: nowUTC,
         },
       ])
       .select()
-      .single();
+      .single()
 
     if (contactInsertError) {
-      console.error("❌ Contact insert error:", contactInsertError.message);
+      console.error('❌ Contact insert error:', contactInsertError.message)
     }
 
-    contact_id = newContact?.id || null;
+    contact_id = newContact?.id || null
   } else {
-    // Step 5: Check name similarity
     const similarity = stringSimilarity.compareTwoStrings(
-      existingContact.name?.toLowerCase() || "",
+      existingContact.name?.toLowerCase() || '',
       extractedName.toLowerCase()
-    );
+    )
 
-    if (similarity < 0.5 && extractedName !== "Unknown") {
+    if (similarity < 0.5 && extractedName !== 'Unknown') {
       const { data: altContact, error: altInsertError } = await supabase
-        .from("contacts")
+        .from('contacts')
         .insert([
           {
             phone,
             name: extractedName,
-            tag: "possible_duplicate",
-            created_at: new Date().toISOString(),
+            tag: 'possible_duplicate',
+            created_at: nowUTC,
           },
         ])
         .select()
-        .single();
+        .single()
 
       if (altInsertError) {
-        console.error("❌ Duplicate insert error:", altInsertError.message);
+        console.error('❌ Duplicate insert error:', altInsertError.message)
       }
 
-      contact_id = altContact?.id || null;
+      contact_id = altContact?.id || null
     } else {
-      contact_id = existingContact.id;
+      contact_id = existingContact.id
     }
   }
 
-  // Step 6: Insert message
-  const { error: messageError } = await supabase.from("messages").insert([
+  // Insert the message
+  const { error: messageError } = await supabase.from('messages').insert([
     {
       content_text: Body,
       phone_number: phone,
       contact_id,
-      status: "received",
-      direction: "inbound",
-      channel: "sms",
-      timestamp: new Date().toISOString(),
-      created_at: new Date().toISOString(),
+      status: 'received',
+      direction: 'inbound',
+      channel: 'sms',
+      timestamp: messageTimestamp,
+      created_at: nowUTC,
     },
-  ]);
+  ])
 
   if (messageError) {
-    console.error("❌ Message insert error:", messageError.message);
-    return res.status(500).json({ error: "Failed to log message" });
+    console.error('❌ Message insert error:', messageError.message)
+    return res.status(500).json({ error: 'Failed to log message' })
   }
 
-  res.status(200).json({ success: true });
+  res.status(200).json({ success: true })
 }
