@@ -182,8 +182,9 @@ useEffect(() => {
                 <select value={newTag} onChange={(e) => setNewTag(e.target.value)} style={{ marginRight: 10 }}>
                   <option value=''>-- Select or type tag --</option>
                   {availableTags.map((tag, i) => (
-                    <option key={i} value={tag}>{tag}</option>
-                  ))}
+                   {availableTags.map((tag) => (
+  <option key={tag.id} value={tag.name}>{tag.name}</option>
+))}
                 </select>
                 <input
                   type='text'
