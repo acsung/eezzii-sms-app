@@ -51,14 +51,18 @@ export default function Inbox() {
     fetchTemplates()
   }, [])
 
-  useEffect(() => {
-    const fetchTags = async () => {
-      const { data } = await supabase.from('contacts').select('tag')
-      const tags = [...new Set((data || []).map(c => c.tag).filter(Boolean))]
-      setAvailableTags(tags)
-    }
-    fetchTags()
-  }, [contacts])
+ useEffect(() => {
+  const fetchTags = async () => {
+    const { data, error } = await supabase.from('contacts').select('tag')
+    console.log("Raw tag data:", data)
+    if (error) console.error("Supabase tag fetch error:", error)
+
+    const tags = [...new Set((data || []).map(c => c.tag).filter(Boolean))]
+    console.log("Filtered unique tags:", tags)
+    setAvailableTags(tags)
+  }
+  fetchTags()
+}, [contacts])
 
   const sendMessage = async () => {
     if (!reply.trim() || !selectedContact) return
