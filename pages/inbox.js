@@ -84,31 +84,56 @@ useEffect(() => {
     setShowTemplates(false)
   }
 
- const handleTagUpdate = async () => {
+  const handleTagUpdate = async () => {
   if (!selectedContact || !newTag.trim()) return
 
-  // Find the tag object by name
-  const tagObj = availableTags.find(t => t.name === newTag.trim())
-  if (!tagObj) {
-    alert('Selected tag not found.')
+  // Step 1: Check if the tag already exists
+  const { data: existingTags, error: fetchError } = await supabase
+    .from('tags')
+    .select('*')
+    .eq('label', newTag.trim())
+
+  if (fetchError) {
+    console.error('Error fetching tag:', fetchError)
     return
   }
 
-  const { error } = await supabase
+  let tagId
+
+  if (existingTags.length > 0) {
+    // Tag already exists, reuse it
+    tagId = existingTags[0].id
+  } else {
+    // Tag doesn't exist — insert a new one
+    const { data: newTagData, error: insertError } = await supabase
+      .from('tags')
+      .insert([{ label: newTag.trim() }])
+      .select()
+    
+    if (insertError) {
+      console.error('Error creating new tag:', insertError)
+      return
+    }
+
+    tagId = newTagData[0].id
+  }
+
+  // Step 2: Update the contact with the tag_id
+  const { error: updateError } = await supabase
     .from('contacts')
-    .update({ tag_id: tagObj.id })
+    .update({ tag_id: tagId })
     .eq('id', selectedContact.id)
 
-  if (error) {
-    console.error('Tag update failed:', error)
+  if (updateError) {
+    console.error('Error updating contact tag:', updateError)
   } else {
+    // Optional: update contact list in UI
     setContacts(contacts.map(c =>
-      c.id === selectedContact.id ? { ...c, tag_id: tagObj.id } : c
+      c.id === selectedContact.id ? { ...c, tag_id: tagId } : c
     ))
     setNewTag('')
   }
 }
-
   const filteredTemplates = templates.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     t.content.toLowerCase().includes(search.toLowerCase())
