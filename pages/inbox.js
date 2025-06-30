@@ -51,17 +51,17 @@ export default function Inbox() {
     fetchTemplates()
   }, [])
 
-useEffect(() => {
-  const fetchTags = async () => {
-    const { data, error } = await supabase.from('tags').select('id, name')
-    if (error) {
-      console.error('Error fetching tags:', error)
-    } else {
-      setAvailableTags(data || [])
+  useEffect(() => {
+    const fetchTags = async () => {
+      const { data, error } = await supabase.from('tags').select('id, label')
+      if (error) {
+        console.error('Error fetching tags:', error)
+      } else {
+        setAvailableTags(data || [])
+      }
     }
-  }
-  fetchTags()
-}, [])
+    fetchTags()
+  }, [])
 
   const sendMessage = async () => {
     if (!reply.trim() || !selectedContact) return
@@ -85,55 +85,53 @@ useEffect(() => {
   }
 
   const handleTagUpdate = async () => {
-  if (!selectedContact || !newTag.trim()) return
+    if (!selectedContact || !newTag.trim()) return
 
-  // Step 1: Check if the tag already exists
-  const { data: existingTags, error: fetchError } = await supabase
-    .from('tags')
-    .select('*')
-    .eq('label', newTag.trim())
-
-  if (fetchError) {
-    console.error('Error fetching tag:', fetchError)
-    return
-  }
-
-  let tagId
-
-  if (existingTags.length > 0) {
-    // Tag already exists, reuse it
-    tagId = existingTags[0].id
-  } else {
-    // Tag doesn't exist — insert a new one
-    const { data: newTagData, error: insertError } = await supabase
+    // Check if tag exists
+    const { data: existingTags, error: fetchError } = await supabase
       .from('tags')
-      .insert([{ label: newTag.trim() }])
-      .select()
-    
-    if (insertError) {
-      console.error('Error creating new tag:', insertError)
+      .select('*')
+      .eq('label', newTag.trim())
+
+    if (fetchError) {
+      console.error('Error fetching tag:', fetchError)
       return
     }
 
-    tagId = newTagData[0].id
+    let tagId
+
+    if (existingTags.length > 0) {
+      tagId = existingTags[0].id
+    } else {
+      const { data: newTagData, error: insertError } = await supabase
+        .from('tags')
+        .insert([{ label: newTag.trim() }])
+        .select()
+
+      if (insertError) {
+        console.error('Error creating new tag:', insertError)
+        return
+      }
+
+      tagId = newTagData[0].id
+    }
+
+    // Update contact
+    const { error: updateError } = await supabase
+      .from('contacts')
+      .update({ tag_id: tagId })
+      .eq('id', selectedContact.id)
+
+    if (updateError) {
+      console.error('Error updating contact tag:', updateError)
+    } else {
+      setContacts(contacts.map(c =>
+        c.id === selectedContact.id ? { ...c, tag_id: tagId } : c
+      ))
+      setNewTag('')
+    }
   }
 
-  // Step 2: Update the contact with the tag_id
-  const { error: updateError } = await supabase
-    .from('contacts')
-    .update({ tag_id: tagId })
-    .eq('id', selectedContact.id)
-
-  if (updateError) {
-    console.error('Error updating contact tag:', updateError)
-  } else {
-    // Optional: update contact list in UI
-    setContacts(contacts.map(c =>
-      c.id === selectedContact.id ? { ...c, tag_id: tagId } : c
-    ))
-    setNewTag('')
-  }
-}
   const filteredTemplates = templates.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     t.content.toLowerCase().includes(search.toLowerCase())
@@ -141,7 +139,7 @@ useEffect(() => {
 
   return (
     <div style={{ fontFamily: 'sans-serif' }}>
-      <button 
+      <button
         onClick={() => setMenuOpen(!menuOpen)}
         style={{ position: 'fixed', top: 20, left: 20, zIndex: 10 }}>
         📋 Menu
@@ -179,12 +177,14 @@ useEffect(() => {
           {selectedContact ? (
             <>
               <div style={{ marginBottom: 10 }}>
-                <select value={newTag} onChange={(e) => setNewTag(e.target.value)} style={{ marginRight: 10 }}>
+                <select
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  style={{ marginRight: 10 }}>
                   <option value=''>-- Select or type tag --</option>
-                  {availableTags.map((tag, i) => (
-                   {availableTags.map((tag) => (
-  <option key={tag.id} value={tag.name}>{tag.name}</option>
-))}
+                  {availableTags.map((tag) => (
+                    <option key={tag.id} value={tag.label}>{tag.label}</option>
+                  ))}
                 </select>
                 <input
                   type='text'
@@ -195,24 +195,26 @@ useEffect(() => {
                 />
                 <button onClick={handleTagUpdate}>Update Tag</button>
               </div>
+
               <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 10, border: '1px solid #eee', padding: 10 }}>
                 {messages.map((m, i) => (
                   <div key={i} style={{ marginBottom: 10 }}>
                     <b>{m.status === 'received' ? selectedContact.name || selectedContact.phone : 'You'}:</b> {m.content || m.content_text}
-                 <div style={{ fontSize: '0.8em', color: '#999' }}>
-  {new Date(new Date(m.created_at).getTime() - (5 * 60 * 60 * 1000)).toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  })}
-</div>
+                    <div style={{ fontSize: '0.8em', color: '#999' }}>
+                      {new Date(new Date(m.created_at).getTime() - (5 * 60 * 60 * 1000)).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'numeric',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                      })}
+                    </div>
                   </div>
                 ))}
               </div>
+
               <textarea
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
@@ -241,10 +243,10 @@ useEffect(() => {
                   <p>{t.content}</p>
                   {t.media_url && (
                     <div style={{ marginTop: 10 }}>
-                      <img 
-                        src={t.media_url} 
-                        alt="Template Media" 
-                        style={{ maxWidth: 120, maxHeight: 120, border: '1px solid #ddd', borderRadius: 4 }} 
+                      <img
+                        src={t.media_url}
+                        alt="Template Media"
+                        style={{ maxWidth: 120, maxHeight: 120, border: '1px solid #ddd', borderRadius: 4 }}
                       />
                     </div>
                   )}
