@@ -18,14 +18,14 @@ export default function ContactsPage() {
   }, []);
 
   async function fetchTags() {
-    const { data, error } = await supabase.from('tags').select('id, label');
+    const { data, error } = await supabase.from('tags').select('id, name');
     if (error) {
       console.error('Error fetching tags:', error);
     } else {
       setAvailableTags(data);
       const tagDict = {};
       data.forEach((tag) => {
-        tagDict[tag.id] = tag.label;
+        tagDict[tag.id] = tag.name;
       });
       setTagMap(tagDict);
     }
@@ -84,7 +84,7 @@ export default function ContactsPage() {
                 <option value="">— Select Tag —</option>
                 {availableTags.map((tag) => (
                   <option key={tag.id} value={tag.id}>
-                    {tag.label}
+                    {tag.name}
                   </option>
                 ))}
               </select>
