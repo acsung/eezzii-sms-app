@@ -87,11 +87,10 @@ export default function Inbox() {
   const handleTagUpdate = async () => {
     if (!selectedContact || !newTag.trim()) return
 
-    // Check if tag exists
     const { data: existingTags, error: fetchError } = await supabase
       .from('tags')
       .select('*')
-      .eq('label', newTag.trim())
+      .eq('name', newTag.trim()) // ✅ FIXED
 
     if (fetchError) {
       console.error('Error fetching tag:', fetchError)
@@ -105,7 +104,7 @@ export default function Inbox() {
     } else {
       const { data: newTagData, error: insertError } = await supabase
         .from('tags')
-        .insert([{ label: newTag.trim() }])
+        .insert([{ name: newTag.trim() }]) // ✅ FIXED
         .select()
 
       if (insertError) {
@@ -116,7 +115,6 @@ export default function Inbox() {
       tagId = newTagData[0].id
     }
 
-    // Update contact
     const { error: updateError } = await supabase
       .from('contacts')
       .update({ tag_id: tagId })
@@ -183,7 +181,7 @@ export default function Inbox() {
                   style={{ marginRight: 10 }}>
                   <option value=''>-- Select or type tag --</option>
                   {availableTags.map((tag) => (
-                    <option key={tag.id} value={tag.label}>{tag.label}</option>
+                    <option key={tag.id} value={tag.name}>{tag.name}</option> // ✅ FIXED
                   ))}
                 </select>
                 <input
