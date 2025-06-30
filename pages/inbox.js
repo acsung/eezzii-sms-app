@@ -53,11 +53,11 @@ export default function Inbox() {
 
 useEffect(() => {
   const fetchTags = async () => {
-    const { data, error } = await supabase.from('tags').select('name')
+    const { data, error } = await supabase.from('tags').select('id, name')
     if (error) {
       console.error('Error fetching tags:', error)
     } else {
-      setAvailableTags((data || []).map(t => t.name))
+      setAvailableTags(data || [])
     }
   }
   fetchTags()
