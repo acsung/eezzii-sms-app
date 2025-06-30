@@ -9,30 +9,35 @@ const supabase = createClient(
 export default function ContactsPage() {
   const [contacts, setContacts] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
+  const [tagMap, setTagMap] = useState({});
   const [tagSelections, setTagSelections] = useState({});
 
   useEffect(() => {
-    fetchContacts();
     fetchTags();
+    fetchContacts();
   }, []);
+
+  async function fetchTags() {
+    const { data, error } = await supabase.from('tags').select('id, label');
+    if (error) {
+      console.error('Error fetching tags:', error);
+    } else {
+      setAvailableTags(data);
+      const tagDict = {};
+      data.forEach((tag) => {
+        tagDict[tag.id] = tag.label;
+      });
+      setTagMap(tagDict);
+    }
+  }
 
   async function fetchContacts() {
     const { data, error } = await supabase
       .from('contacts')
-      .select('*, tags (id, label)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (!error) setContacts(data);
-    else console.error(error);
-  }
-
-  async function fetchTags() {
-    const { data, error } = await supabase
-      .from('tags')
-      .select('*')
-      .order('label', { ascending: true });
-
-    if (!error) setAvailableTags(data);
     else console.error(error);
   }
 
@@ -45,7 +50,7 @@ export default function ContactsPage() {
     if (error) {
       console.error('Error updating tag:', error);
     } else {
-      fetchContacts(); // Refresh after update
+      fetchContacts(); // Refresh
     }
   }
 
@@ -65,7 +70,7 @@ export default function ContactsPage() {
 
             <div className="mt-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tag: <span className="italic text-blue-600">{contact.tags?.label || '—'}</span>
+                Tag: <span className="italic text-blue-600">{tagMap[contact.tag_id] || '—'}</span>
               </label>
               <select
                 value={tagSelections[contact.id] || ''}
