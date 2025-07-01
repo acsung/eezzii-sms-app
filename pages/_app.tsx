@@ -1,50 +1,58 @@
-import "@/styles/globals.css";
-import type { AppProps } from "next/app";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 
-export default function App({ Component, pageProps }: AppProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+const navItems = [
+  { name: "SMS Blaster", href: "/" },
+  { name: "Inbox", href: "/inbox" },
+  { name: "Contacts", href: "/contacts" },
+  { name: "Templates", href: "/templates" },
+  { name: "Scheduled", href: "/scheduled" },
+  { name: "Settings", href: "/settings" },
+];
 
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+export default function Layout({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white shadow md:hidden">
-        <button
-          onClick={toggleSidebar}
-          className="text-gray-700 focus:outline-none"
-        >
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <span className="text-lg font-semibold">EEZZZII</span>
-      </div>
-
-      {/* Sidebar */}
-      <div className={`fixed inset-0 z-40 md:hidden transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} bg-black bg-opacity-50`} onClick={toggleSidebar}></div>
-      <div className={`fixed z-50 top-0 left-0 h-full w-64 bg-white shadow transform transition-transform duration-300 md:relative md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <nav className="flex flex-col h-full p-4 space-y-4">
-          <Link href="/" className="text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>SMS Blaster</Link>
-          <Link href="/inbox" className="text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>Inbox</Link>
-          <Link href="/contacts" className="text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>Contacts</Link>
-          <Link href="/templates" className="text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>Templates</Link>
-          <Link href="/scheduled" className="text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>Scheduled</Link>
-          <Link href="/settings" className="text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>Settings</Link>
+    <div className="flex h-screen w-screen flex-col md:flex-row overflow-hidden">
+      <div
+        className={`$ {
+          isOpen ? "w-48" : "w-0"
+        } md:w-48 bg-gray-100 p-4 border-r md:relative fixed md:translate-x-0 transform top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out`}
+      >
+        <div className="hidden md:block font-bold text-xl mb-4">EEZZII</div>
+        <div className="md:hidden flex justify-between items-center mb-4">
+          <div className="font-bold text-xl">EEZZII</div>
+          <button onClick={() => setIsOpen(false)} className="text-2xl font-bold">×</button>
+        </div>
+        <nav className="flex flex-col space-y-2">
+          {navItems.map((item) => (
+            <Link key={item.name} href={item.href}>
+              <span
+                className={`cursor-pointer px-2 py-1 rounded hover:bg-blue-200 transition-colors duration-200 text-sm md:text-base ${
+                  router.pathname === item.href ? "bg-blue-300" : ""
+                }`}
+              >
+                {item.name}
+              </span>
+            </Link>
+          ))}
         </nav>
       </div>
 
-      {/* Page Content */}
-      <div className="flex-1 p-4 md:ml-64">
-        <Component {...pageProps} />
+      <div className="flex flex-col flex-1">
+        <div className="flex items-center p-2 bg-gray-100 md:hidden">
+          <button
+            className="text-2xl font-bold px-2"
+            onClick={() => setIsOpen(true)}
+          >
+            ☰
+          </button>
+          <div className="ml-4 font-bold text-lg">EEZZII</div>
+        </div>
+        <main className="p-4 overflow-y-auto flex-1">{children}</main>
       </div>
     </div>
   );
