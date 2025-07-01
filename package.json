@@ -7,6 +7,9 @@
     "start": "next start"
   },
   "dependencies": {
+  "typescript": "^5.3.3",
+  "@types/react": "^18.2.37",
+  "@types/node": "^20.11.12"
     "@supabase/supabase-js": "^2.39.3",
     "next": "latest",
     "openai": "^5.5.0",
