@@ -1,10 +1,25 @@
-// app/inbox/page.tsx
+'use client'
+
+import { useState } from 'react'
+import InboxSidebar from '@/components/inbox/InboxSidebar'
+import InboxThread from '@/components/inbox/InboxThread'
+import { Contact } from '@/types'
 
 export default function InboxPage() {
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-800">Inbox</h1>
-      <p className="mt-2 text-gray-600">This is where your messages will appear.</p>
+    <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
+      <InboxSidebar selectedContact={selectedContact} onSelectContact={setSelectedContact} />
+      <main className="flex-1 flex flex-col">
+        {selectedContact ? (
+          <InboxThread contact={selectedContact} />
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
+            Select a contact to view the conversation.
+          </div>
+        )}
+      </main>
     </div>
-  );
+  )
 }
