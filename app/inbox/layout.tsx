@@ -1,14 +1,11 @@
 // app/inbox/layout.tsx
-
-import { ReactNode } from 'react'
-import '../../styles/globals.css'
+import '../../styles/globals.css';
+import type { ReactNode } from 'react';
 
 export default function InboxLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-gray-100 text-gray-900">
-        {children}
-      </body>
-    </html>
-  )
+    <div className="min-h-screen bg-gray-100">
+      {children}
+    </div>
+  );
 }
